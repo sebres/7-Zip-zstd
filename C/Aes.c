@@ -53,6 +53,8 @@ static Byte InvS[256];
 
 // #define _SHOW_AES_STATUS
 
+#if 1
+
 #ifdef MY_CPU_X86_OR_AMD64
   #define USE_HW_AES
 #elif defined(MY_CPU_ARM_OR_ARM64) && defined(MY_CPU_LE)
@@ -69,6 +71,8 @@ static Byte InvS[256];
       #define USE_HW_AES
     #endif
   #endif
+#endif
+
 #endif
 
 #ifdef USE_HW_AES

@@ -6,6 +6,8 @@
 #include "../../Common/ComTry.h"
 #include "../../Common/Defs.h"
 
+#include "../IPassword.h"
+
 #include "../Common/ProgressUtils.h"
 #include "../Common/RegisterArc.h"
 #include "../Common/StreamUtils.h"
@@ -13,6 +15,10 @@
 #include "../Compress/ZstdDecoder.h"
 #include "../Compress/ZstdEncoder.h"
 #include "../Compress/CopyCoder.h"
+
+#ifndef _NO_CRYPTO
+#include "../Crypto/AesStream.h"
+#endif
 
 #include "Common/DummyOutStream.h"
 #include "Common/HandlerOut.h"
@@ -279,6 +285,12 @@ static HRESULT UpdateArchive(
     const CProps &props,
     IArchiveUpdateCallback *updateCallback)
 {
+  HRESULT res;
+  #ifndef _NO_CRYPTO
+  NCrypto::CAesOutStream *aesStream = NULL;
+  CMyComPtr<ICryptoGetTextPassword2> getPassword2;
+  #endif
+
   RINOK(updateCallback->SetTotal(unpackSize));
   CMyComPtr<ISequentialInStream> fileInStream;
   RINOK(updateCallback->GetStream(0, &fileInStream));
@@ -286,14 +298,46 @@ static HRESULT UpdateArchive(
   CMyComPtr<ICompressProgressInfo> localProgress = localProgressSpec;
   localProgressSpec->Init(updateCallback, true);
   NCompress::NZSTD::CEncoder *encoderSpec = new NCompress::NZSTD::CEncoder;
+
   // by zstd archive type store dictID and checksum (similar to zstd client)
   encoderSpec->dictIDFlag = 1;
   encoderSpec->checksumFlag = 1;
   encoderSpec->unpackSize = unpackSize;
   CMyComPtr<ICompressCoder> encoder = encoderSpec;
-  RINOK(props.SetCoderProps(encoderSpec, NULL));
-  RINOK(encoder->Code(fileInStream, outStream, NULL, NULL, localProgress));
-  return updateCallback->SetOperationResult(NArchive::NUpdate::NOperationResult::kOK);
+  res = props.SetCoderProps(encoderSpec, NULL);
+  if (res != S_OK) goto done;
+
+  // encryption:
+  #ifndef _NO_CRYPTO
+  updateCallback->QueryInterface(IID_ICryptoGetTextPassword2, (void **)&getPassword2);
+  if (getPassword2)
+  {
+    CMyComBSTR_Wipe password;
+    Int32 passwordIsDefined;
+    RINOK(getPassword2->CryptoGetTextPassword2(&passwordIsDefined, &password));
+    UString pwd = password;
+    if (passwordIsDefined) {
+      aesStream = new NCrypto::CAesOutStream();
+      res = aesStream->Init(outStream, pwd);
+      pwd.Wipe_and_Empty();
+      if (res != S_OK) goto done;
+      outStream = aesStream;
+    }
+  }
+  #endif
+
+  res = encoder->Code(fileInStream, outStream, NULL, NULL, localProgress);
+  if (res != S_OK) goto done;
+  res = updateCallback->SetOperationResult(NArchive::NUpdate::NOperationResult::kOK);
+
+done:
+  #ifndef _NO_CRYPTO
+  if (aesStream) {
+    RINOK(aesStream->Finalize());
+    delete aesStream;
+  }
+  #endif
+  return res;
 }
 
 STDMETHODIMP CHandler::GetFileTimeType(UInt32 *type)

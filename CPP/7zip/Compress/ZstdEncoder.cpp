@@ -43,7 +43,7 @@ CEncoder::~CEncoder()
   if (_ctx) {
     ZSTD_freeCCtx(_ctx);
     MyFree(_srcBuf);
-    MyFree(_dstBuf);
+    ISzAlloc_Free(&g_AlignedAlloc, _dstBuf);
   }
 }
 
@@ -240,7 +240,7 @@ STDMETHODIMP CEncoder::Code(ISequentialInStream *inStream,
     if (!_srcBuf)
       return E_OUTOFMEMORY;
 
-    _dstBuf = MyAlloc(_dstBufSize);
+    _dstBuf = ISzAlloc_Alloc(&g_AlignedAlloc, _dstBufSize); // aligned because of possible HW AES encryption
     if (!_dstBuf)
       return E_OUTOFMEMORY;
 
