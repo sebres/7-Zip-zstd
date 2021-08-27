@@ -9,6 +9,7 @@
 #ifndef BROTLI_COMMON_PORT_H_
 #define BROTLI_COMMON_PORT_H_
 
+#ifdef _MSC_VER
 /* disable some warnings /TR */
 #pragma warning(disable : 4100)
 #pragma warning(disable : 4127)
@@ -16,6 +17,7 @@
 #pragma warning(disable : 4295)
 #pragma warning(disable : 4389)
 #pragma warning(disable : 4701)
+#endif
 
 /* The following macros were borrowed from https://github.com/nemequ/hedley
  * with permission of original author - Evan Nemerson <evan@nemerson.com> */

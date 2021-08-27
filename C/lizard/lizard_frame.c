@@ -1023,6 +1023,7 @@ size_t LizardF_decompress(LizardF_decompressionContext_t decompressionContext,
             dctxPtr->tmpInTarget = minFHSize;   /* minimum to attempt decode */
             dctxPtr->dStage = dstage_storeHeader;
             /* pass-through */
+            /* fall through */
 
         case dstage_storeHeader:
             {   size_t sizeToCopy = dctxPtr->tmpInTarget - dctxPtr->tmpInSize;
@@ -1137,6 +1138,7 @@ size_t LizardF_decompress(LizardF_decompressionContext_t decompressionContext,
                 dctxPtr->dStage = dstage_decodeCBlock;
                 /* pass-through */
             }
+            /* fall through */
 
         case dstage_decodeCBlock:
             if ((size_t)(dstEnd-dstPtr) < dctxPtr->maxBlockSize)   /* not enough place into dst : decode into tmpOut */

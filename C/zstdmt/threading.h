@@ -18,7 +18,7 @@
 extern "C" {
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__GNUC__)
 
 /**
  * Windows Pthread Wrapper, based on this site:

@@ -26,7 +26,8 @@ SRes Xz_ReadHeader(CXzStreamFlags *p, ISeqInStream *inStream)
 
 #define READ_VARINT_AND_CHECK(buf, pos, size, res) \
   { unsigned s = Xz_ReadVarInt(buf + pos, size - pos, res); \
-  if (s == 0) return SZ_ERROR_ARCHIVE; pos += s; }
+  if (s == 0) return SZ_ERROR_ARCHIVE; \
+  pos += s; }
 
 SRes XzBlock_ReadHeader(CXzBlock *p, ISeqInStream *inStream, BoolInt *isIndex, UInt32 *headerSizeRes)
 {

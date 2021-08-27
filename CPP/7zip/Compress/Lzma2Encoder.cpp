@@ -10,7 +10,15 @@
 #include "../Common/StreamUtils.h"
 
 #include "Lzma2Encoder.h"
+
+#ifdef _MSC_VER
 #pragma warning(disable : 4127)
+#endif
+
+#ifndef min
+#  define min(a,b) ((a) <= (b) ? (a) : (b))
+#  define max(a,b) ((a) >= (b) ? (a) : (b))
+#endif
 
 namespace NCompress {
 

@@ -19,8 +19,10 @@ extern "C" {
 #include <stddef.h>   /* size_t */
 
 /* disable some warnings /TR */
+#ifdef _MSC_VER
 #pragma warning(disable : 4701)
 #pragma warning(disable : 4703)
+#endif
 
 /* =====   ZSTDLIB_API : control library symbols visibility   ===== */
 #ifndef ZSTDLIB_VISIBILITY

@@ -6,8 +6,10 @@
 
 MY_ARCH_2 = $(MY_ARCH)
 
+ifndef MY_ASM
 MY_ASM = jwasm
 MY_ASM = asmc
+endif
 
 PROGPATH = $(O)/$(PROG)
 
@@ -124,8 +126,13 @@ CFLAGS = $(MY_ARCH_2) $(LOCAL_FLAGS) $(CFLAGS_BASE2) $(CFLAGS_BASE) $(CC_SHARED)
 
 
 ifdef IS_MINGW
-AFLAGS_ABI = -coff -DABI_CDECL
-AFLAGS = $(AFLAGS_ABI) -Fo$(O)/$(basename $(<F)).o
+  ifeq "$(MY_ASM)" "nasm"
+    AFLAGS_ABI = -f win64 -DABI_CDECL
+    AFLAGS = $(AFLAGS_ABI) -o $(O)/$(basename $(<F)).o
+  else
+    AFLAGS_ABI = -coff -DABI_CDECL
+    AFLAGS = $(AFLAGS_ABI) -Fo$(O)/$(basename $(<F)).o
+  endif
 else
 ifdef IS_X64
 AFLAGS_ABI = -elf64 -DABI_LINUX
@@ -681,6 +688,45 @@ $O/ZlibEncoder.o: ../../Compress/ZlibEncoder.cpp
 	$(CXX) $(CXXFLAGS) $<
 
 
+$O/BrotliDecoder.o: ../../Compress/BrotliDecoder.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/BrotliEncoder.o: ../../Compress/BrotliEncoder.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/BrotliRegister.o: ../../Compress/BrotliRegister.cpp
+	$(CXX) $(CXXFLAGS) $<
+
+$O/Lz4Decoder.o: ../../Compress/Lz4Decoder.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/Lz4Encoder.o: ../../Compress/Lz4Encoder.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/Lz4Register.o: ../../Compress/Lz4Register.cpp
+	$(CXX) $(CXXFLAGS) $<
+
+$O/Lz5Decoder.o: ../../Compress/Lz5Decoder.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/Lz5Encoder.o: ../../Compress/Lz5Encoder.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/Lz5Register.o: ../../Compress/Lz5Register.cpp
+	$(CXX) $(CXXFLAGS) $<
+
+$O/LizardDecoder.o: ../../Compress/LizardDecoder.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/LizardEncoder.o: ../../Compress/LizardEncoder.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/LizardRegister.o: ../../Compress/LizardRegister.cpp
+	$(CXX) $(CXXFLAGS) $<
+
+$O/ZstdDecoder.o: ../../Compress/ZstdDecoder.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/ZstdEncoder.o: ../../Compress/ZstdEncoder.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/ZstdRegister.o: ../../Compress/ZstdRegister.cpp
+	$(CXX) $(CXXFLAGS) $<
+
+$O/FastLzma2Register.o: ../../Compress/FastLzma2Register.cpp
+	$(CXX) $(CXXFLAGS) $<
+
+
 $O/7zAes.o: ../../Crypto/7zAes.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/7zAesRegister.o: ../../Crypto/7zAesRegister.cpp
@@ -1169,6 +1215,49 @@ $O/XzEnc.o: ../../../../C/XzEnc.c
 	$(CC) $(CFLAGS) $<
 $O/XzIn.o: ../../../../C/XzIn.c
 	$(CC) $(CFLAGS) $<
+
+
+ifdef BROTLI_OBJS
+.SECONDEXPANSION:
+$(BROTLI_OBJS): ../../../../C/brotli/$$(basename $$(@F)).c
+	$(CC) $(CFLAGS) $<
+endif
+
+ifdef LIZARD_OBJS
+.SECONDEXPANSION:
+$(LIZARD_OBJS): ../../../../C/lizard/$$(basename $$(@F)).c
+	$(CC) $(CFLAGS) $<
+endif
+
+ifdef LZ4_OBJS
+.SECONDEXPANSION:
+$(LZ4_OBJS): ../../../../C/lz4/$$(basename $$(@F)).c
+	$(CC) $(CFLAGS) $<
+endif
+
+ifdef LZ5_OBJS
+.SECONDEXPANSION:
+$(LZ5_OBJS): ../../../../C/lz5/$$(basename $$(@F)).c
+	$(CC) $(CFLAGS) $<
+endif
+
+ifdef ZSTD_OBJS
+.SECONDEXPANSION:
+$(ZSTD_OBJS): ../../../../C/zstd/$$(basename $$(@F)).c
+	$(CC) $(CFLAGS) $<
+endif
+
+ifdef ZSTDMT_OBJS
+.SECONDEXPANSION:
+$(ZSTDMT_OBJS): ../../../../C/zstdmt/$$(basename $$(@F)).c
+	$(CC) $(CFLAGS) -I../../../../C/brotli -I../../../../C/lizard -I../../../../C/lz4 -I../../../../C/lz5 $<
+endif
+
+ifdef FASTLZMA2_OBJS
+.SECONDEXPANSION:
+$(FASTLZMA2_OBJS): ../../../../C/fast-lzma2/$$(basename $$(@F)).c
+	$(CC) $(CFLAGS) -DNO_XXHASH -DFL2_7ZIP_BUILD $<
+endif
 
 
 $O/7zMain.o: ../../../../C/Util/7z/7zMain.c

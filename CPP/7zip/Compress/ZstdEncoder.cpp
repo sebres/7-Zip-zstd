@@ -163,14 +163,16 @@ STDMETHODIMP CEncoder::SetCoderProperties(const PROPID * propIDs, const PROPVARI
       }
     case NCoderPropID::kTargetLen:
       {
+      #if ZSTD_TARGETLENGTH_MIN > 0
         if (v < ZSTD_TARGETLENGTH_MIN) v = ZSTD_TARGETLENGTH_MIN;
+      #endif
         if (v > ZSTD_TARGETLENGTH_MAX) v = ZSTD_TARGETLENGTH_MAX;
         _TargetLen = 0;
         break;
       }
     case NCoderPropID::kOverlapLog:
       {
-        if (v < 0) v = 0; /* no overlap */
+        // if (v < 0) v = 0; /* no overlap */
         if (v > 9) v = 9; /* full size */
         _OverlapLog = v;
         break;
@@ -198,7 +200,7 @@ STDMETHODIMP CEncoder::SetCoderProperties(const PROPID * propIDs, const PROPVARI
       }
     case NCoderPropID::kLdmHashRateLog:
       {
-        if (v < 0) v = 0; /* 0 => automatic mode */
+        // if (v < 0) v = 0; /* 0 => automatic mode */
         if (v > (ZSTD_WINDOWLOG_MAX - ZSTD_HASHLOG_MIN)) v = (ZSTD_WINDOWLOG_MAX - ZSTD_HASHLOG_MIN);
         _LdmHashRateLog = v;
         break;

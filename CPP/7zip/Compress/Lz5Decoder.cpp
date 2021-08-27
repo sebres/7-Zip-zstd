@@ -89,7 +89,7 @@ STDMETHODIMP CDecoder::SetDecoderProperties2(const Byte * prop, UInt32 size)
 
   switch (size) {
   case 3:
-    memcpy(&_props, pProps, 3);
+    memcpy((char *)&_props, pProps, 3);
     return S_OK;
   case 5:
     memcpy(&_props, pProps, 5);

@@ -773,7 +773,8 @@ static BoolInt Xz_CheckFooter(CXzStreamFlags flags, UInt64 indexSize, const Byte
 
 #define READ_VARINT_AND_CHECK(buf, pos, size, res) \
   { unsigned s = Xz_ReadVarInt(buf + pos, size - pos, res); \
-  if (s == 0) return SZ_ERROR_ARCHIVE; pos += s; }
+  if (s == 0) return SZ_ERROR_ARCHIVE; \
+  pos += s; }
 
 
 static BoolInt XzBlock_AreSupportedFilters(const CXzBlock *p)
