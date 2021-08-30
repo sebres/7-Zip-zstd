@@ -121,7 +121,7 @@ typedef struct
 
   UInt32 tempTarget;
   unsigned tempPos;
-  Byte temp[4 * 2];
+  Byte temp[8 * 2];
 
   unsigned flushPos;
   

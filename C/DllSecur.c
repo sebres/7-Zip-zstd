@@ -42,7 +42,7 @@ void My_SetDefaultDllDirectories()
     GetVersionEx(&vi);
     if (!GetVersionEx(&vi) || vi.dwMajorVersion != 6 || vi.dwMinorVersion != 0)
     {
-      Func_SetDefaultDllDirectories setDllDirs = (Func_SetDefaultDllDirectories)(void**)
+      Func_SetDefaultDllDirectories setDllDirs = (Func_SetDefaultDllDirectories) _CAST_FARPROC
           GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")), "SetDefaultDllDirectories");
       if (setDllDirs)
         if (setDllDirs(MY_LOAD_LIBRARY_SEARCH_SYSTEM32 | MY_LOAD_LIBRARY_SEARCH_USER_DIRS))
@@ -65,7 +65,7 @@ void LoadSecurityDlls()
     vi.dwOSVersionInfoSize = sizeof(vi);
     if (!GetVersionEx(&vi) || vi.dwMajorVersion != 6 || vi.dwMinorVersion != 0)
     {
-      Func_SetDefaultDllDirectories setDllDirs = (Func_SetDefaultDllDirectories)(void**)
+      Func_SetDefaultDllDirectories setDllDirs = (Func_SetDefaultDllDirectories) _CAST_FARPROC
           GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")), "SetDefaultDllDirectories");
       if (setDllDirs)
         if (setDllDirs(MY_LOAD_LIBRARY_SEARCH_SYSTEM32 | MY_LOAD_LIBRARY_SEARCH_USER_DIRS))

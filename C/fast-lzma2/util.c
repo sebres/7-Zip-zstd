@@ -20,6 +20,12 @@ extern "C" {
 #include <errno.h>
 #include <assert.h>
 
+#if defined(__GNUC__)
+#  define _CAST_FARPROC (void**)
+#else
+#  define _CAST_FARPROC
+#endif
+
 
 int UTIL_fileExist(const char* filename)
 {
@@ -493,7 +499,7 @@ int UTIL_countPhysicalCores(void)
         DWORD returnLength = 0;
         size_t byteOffset = 0;
 
-        glpi = (LPFN_GLPI)(void**)GetProcAddress(GetModuleHandle(TEXT("kernel32")),
+        glpi = (LPFN_GLPI) _CAST_FARPROC GetProcAddress(GetModuleHandle(TEXT("kernel32")),
                                          "GetLogicalProcessorInformation");
 
         if (glpi == NULL) {

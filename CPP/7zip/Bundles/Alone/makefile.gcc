@@ -9,10 +9,11 @@ PROG = 7za
 # USE_C_LZFINDOPT = 1
 
 MY_CONSOLE = 1
-CFLAGS = $(CFLAGS) -DZSTD_MULTITHREAD
+CFLAGS_OPT = -Ofast -s -march=core2
+CFLAGS_BASE2 = -DZSTD_MULTITHREAD
 
 ifndef UNDER_CE
-CFLAGS = $(CFLAGS) -DWIN_LONG_PATH -D_7ZIP_LARGE_PAGES -DSUPPORT_DEVICE_FILE
+MY_ARCH = -DWIN_LONG_PATH -D_7ZIP_LARGE_PAGES -DSUPPORT_DEVICE_FILE
 endif
 
 include ../../LzmaDec_gcc.mak
@@ -146,6 +147,7 @@ WIN_OBJS = \
   $O/FileIO.o \
   $O/FileLink.o \
   $O/FileName.o \
+  $O/FileSystem.o \
   $O/MemoryLock.o \
   $O/PropVariant.o \
   $O/PropVariantConv.o \
