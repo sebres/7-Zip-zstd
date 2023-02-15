@@ -2563,6 +2563,13 @@ static const CBenchMethod g_Bench[] =
   // { 10, 22, 1655,    0, 1830, "PPMDZip:x5" },
   { 10, 22, 1655,    0, 1830, "PPMD:x5" },
 
+  { 20, 18,  600,   50,   20, "LZHAM" },     // FIXME - adjust parameters
+  { 20, 18,  600,   50,   20, "BROTLI" },    //   .
+  { 20, 18,  600,   50,   20, "LIZARD" },    //   .
+  { 20, 18,  600,   50,   20, "LZ4" },       //   .
+  { 20, 18,  600,   50,   20, "LZ5" },       //   .
+  { 20, 18,  600,   50,   20, "ZSTD" },      // FIXME - adjust parameters
+
   // {  2,  0,    3,    0,    4, "Delta:1" },
   // {  2,  0,    3,    0,    4, "Delta:2" },
   // {  2,  0,    3,    0,    4, "Delta:3" },
