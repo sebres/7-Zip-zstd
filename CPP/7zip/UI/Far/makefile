@@ -70,6 +70,7 @@ UI_COMMON_OBJS = \
   $O\LoadCodecs.obj \
   $O\OpenArchive.obj \
   $O\PropIDUtils.obj \
+  $O\RegistryUtils.obj \
   $O\SetProperties.obj \
   $O\SortUtils.obj \
   $O\UpdateAction.obj \
