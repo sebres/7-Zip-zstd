@@ -330,8 +330,8 @@ static int StartInServerMode()
       // g_StdOut << "inp: " << scannedString << endl;
 
       UStringVector commandStrings;
-      NCommandLineParser::SplitCommandLine(scannedString, commandStrings);
-      commandStrings.Insert(0, DisableHeaders);
+      commandStrings.Add(DisableHeaders);
+      NCommandLineParser::SplitCommandLine(scannedString, commandStrings, false);
       MainV(commandStrings);
     
     }

@@ -8,6 +8,7 @@
 namespace NCommandLineParser {
 
 bool SplitCommandLine(const UString &src, UString &dest1, UString &dest2);
+void SplitCommandLine(const UString &s, UStringVector &parts, bool overwrite);
 void SplitCommandLine(const UString &s, UStringVector &parts);
 
 namespace NSwitchType

@@ -28,11 +28,13 @@ bool SplitCommandLine(const UString &src, UString &dest1, UString &dest2)
   return i != 0;
 }
 
-void SplitCommandLine(const UString &s, UStringVector &parts)
+void SplitCommandLine(const UString &s, UStringVector &parts, bool overwrite)
 {
   UString sTemp (s);
   sTemp.Trim();
-  parts.Clear();
+  if (overwrite) {
+    parts.Clear();
+  }
   for (;;)
   {
     UString s1, s2;
@@ -42,6 +44,10 @@ void SplitCommandLine(const UString &s, UStringVector &parts)
       break;
     sTemp = s2;
   }
+}
+void SplitCommandLine(const UString &s, UStringVector &parts)
+{
+  SplitCommandLine(s, parts, true);
 }
 
 
