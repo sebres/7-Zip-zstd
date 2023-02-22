@@ -114,6 +114,7 @@ static const char * const kHelpString =
     "  t : Test integrity of archive\n"
     "  u : Update files to archive\n"
     "  x : eXtract files with full paths\n"
+    "  --srv-mode : Start in interactive server mode\n"
     "\n"
     "<Switches>\n"
     "  -- : Stop switches and @listfile parsing\n"
@@ -295,6 +296,129 @@ static void ShowCopyrightAndHelp(CStdOutStream *so, bool needHelp)
   *so << endl;
   if (needHelp)
     *so << kHelpString;
+}
+
+static int MainV(UStringVector &commandStrings);
+static const char * const kNoErr = "";
+static const char * const kException_CmdLine_Error_Message = "Command Line Error: ";
+static const char * const kExceptionErrorMessage = "ERROR: ";
+static const char * const kUserBreakMessage  = "Break signaled";
+static const char * const kMemoryExceptionMessage = "Can't allocate required memory!";
+static const char * const kUnknownExceptionMessage = "Unknown Error";
+static const char * const kInternalExceptionMessage = "Internal Error # ";
+static int StartInServerMode()
+{
+  ShowCopyrightAndHelp(g_StdStream, false);
+  g_StdOut << "## SRV-MODE | 7z"
+    PROG_POSTFIX " interactive server mode | "
+    "type exit to stop interactive server mode" << endl;
+  UString scannedString;
+  int errCode;
+  UString errMsg;
+  UString DisableHeaders("-ba");
+  do {
+    try {
+
+      errCode = 0; errMsg = kNoErr;
+      g_StdOut << endl << "# ";
+      if (!g_StdIn.ScanUStringUntilNewLine(scannedString))
+        break;
+      if (!scannedString.Len() && g_StdIn.Eof())
+        break;
+      if (scannedString.IsEqualTo("exit"))
+        break;
+      // g_StdOut << "inp: " << scannedString << endl;
+
+      UStringVector commandStrings;
+      NCommandLineParser::SplitCommandLine(scannedString, commandStrings);
+      commandStrings.Insert(0, DisableHeaders);
+      MainV(commandStrings);
+    
+    }
+    catch(const CNewException &)
+    {
+      errMsg = (kMemoryExceptionMessage);
+      errCode = (NExitCode::kMemoryError);
+    }
+    catch(const NConsoleClose::CCtrlBreakException &)
+    {
+      errMsg = (kUserBreakMessage);
+      errCode = (NExitCode::kUserBreak);
+    }
+    catch(const CMessagePathException &e)
+    {
+      errMsg = (kException_CmdLine_Error_Message);
+      errMsg += e;
+      errCode = (NExitCode::kUserError);
+    }
+    catch(const CSystemException &systemError)
+    {
+      if (systemError.ErrorCode == E_OUTOFMEMORY)
+      {
+        errMsg = (kMemoryExceptionMessage);
+        errCode = (NExitCode::kMemoryError);
+      }
+      if (systemError.ErrorCode == E_ABORT)
+      {
+        errMsg = (kUserBreakMessage);
+        errCode = (NExitCode::kUserBreak);
+      }
+      else 
+      {
+        errMsg = ("System ERROR: ");
+        errMsg += NError::MyFormatMessage(systemError.ErrorCode);
+        errCode = (systemError.ErrorCode);
+      }
+    }
+    catch(NExitCode::EEnum &exitCode)
+    {
+      errMsg = kInternalExceptionMessage;
+      errCode = (exitCode);
+    }
+    catch(const UString &s)
+    {
+      errMsg = (kExceptionErrorMessage);
+      errMsg += s;
+      errCode = (NExitCode::kFatalError);
+    }
+    catch(const AString &s)
+    {
+      errMsg = (kExceptionErrorMessage);
+      errMsg += s;
+      errCode = (NExitCode::kFatalError);
+    }
+    catch(const char *s)
+    {
+      errMsg = (kExceptionErrorMessage);
+      errMsg += s;
+      errCode = (NExitCode::kFatalError);
+    }
+    catch(const wchar_t *s)
+    {
+      errMsg = (kExceptionErrorMessage);
+      errMsg += s;
+      errCode = (NExitCode::kFatalError);
+    }
+    catch(int t)
+    {
+      errMsg = kInternalExceptionMessage;
+      errCode = (t);
+    }
+    catch(...)
+    {
+      errMsg = (kUnknownExceptionMessage);
+      errCode = (NExitCode::kFatalError);
+    }
+    if (errCode != 0 || errMsg.Len()) {
+      if (g_StdStream)
+        g_StdStream->Flush();
+      if (g_ErrStream)
+        *g_ErrStream << "<< ERROR | " << errMsg << ", ECODE: " << errCode << endl;
+      if (errCode == NExitCode::kMemoryError || errCode == NExitCode::kUserBreak)
+        return errCode;
+    }
+  } while (1);
+  return 0;
 }
 
 
@@ -755,6 +879,17 @@ int Main2(
     commandStrings.Delete(0);
   #endif
 
+  if (commandStrings.Size() == 1 && commandStrings[0].IsEqualTo("--srv-mode")) {
+    return StartInServerMode();
+  }
+
+  return MainV(commandStrings);
+}
+
+static int MainV(
+  UStringVector &commandStrings
+)
+{
   if (commandStrings.Size() == 0)
   {
     ShowCopyrightAndHelp(g_StdStream, true);
