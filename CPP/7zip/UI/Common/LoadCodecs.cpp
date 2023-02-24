@@ -655,6 +655,17 @@ HRESULT CCodecs::LoadDll(const FString &dllPath, bool needCheckDll, bool *loaded
   return S_OK;
 }
 
+void CCodecs::UpdateCaseSensitive()
+{
+  FOR_VECTOR(i, Libs)
+  {
+    const CCodecLib &lib = Libs[i];
+    MY_GET_FUNC_LOC (setCaseSensitive, Func_SetCaseSensitive, lib.Lib.GetProc("SetCaseSensitive"));
+    if (setCaseSensitive)
+      setCaseSensitive(CaseSensitive ? 1 : 0);
+  }
+}
+
 HRESULT CCodecs::LoadDllsFromFolder(const FString &folderPath)
 {
   if (!NFile::NFind::DoesDirExist_FollowLink(folderPath))

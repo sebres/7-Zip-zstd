@@ -286,6 +286,12 @@ static void ShowProgInfo(CStdOutStream *so)
 }
 #endif
 
+static void ThrowException_if_Error(HRESULT res)
+{
+  if (res != S_OK)
+    throw CSystemException(res);
+}
+
 static void ShowCopyrightAndHelp(CStdOutStream *so, bool needHelp)
 {
   if (!so)
@@ -298,7 +304,13 @@ static void ShowCopyrightAndHelp(CStdOutStream *so, bool needHelp)
     *so << kHelpString;
 }
 
-static int MainV(UStringVector &commandStrings);
+static int MainV(
+  UStringVector &commandStrings,
+  CCodecs *codecs
+  #ifdef EXTERNAL_CODECS
+  , CExternalCodecs &__externalCodecs
+  #endif
+);
 static const char * const kNoErr = "";
 static const char * const kException_CmdLine_Error_Message = "Command Line Error: ";
 static const char * const kExceptionErrorMessage = "ERROR: ";
@@ -316,6 +328,24 @@ static int StartInServerMode()
   HANDLE h_StdIn = GetStdHandle(STD_INPUT_HANDLE);
   DWORD conMode = 0;
   if (!GetConsoleMode(h_StdIn, &conMode)) conMode = 0;
+
+  CREATE_CODECS_OBJECT
+
+  ThrowException_if_Error(codecs->Load());
+  Codecs_AddHashArcHandler(codecs);
+
+  #ifdef EXTERNAL_CODECS
+  {
+    g_ExternalCodecs_Ptr = &__externalCodecs;
+    UString s;
+    codecs->GetCodecsErrorMessage(s);
+    if (!s.IsEmpty())
+    {
+      CStdOutStream &so = (g_StdStream ? *g_StdStream : g_StdOut);
+      so << endl << s << endl;
+    }
+  }
+  #endif
 
   UString scannedString;
   int errCode;
@@ -341,7 +371,11 @@ static int StartInServerMode()
       UStringVector commandStrings;
       commandStrings.Add(DisableHeaders);
       NCommandLineParser::SplitCommandLine(scannedString, commandStrings, false);
-      MainV(commandStrings);
+      MainV(commandStrings, codecs
+      #ifdef EXTERNAL_CODECS
+        ,__externalCodecs
+      #endif
+      );
     }
     catch(const CNewException &)
     {
@@ -558,12 +592,6 @@ static int WarningsCheck(HRESULT result, const CCallbackConsoleBase &callback,
   }
   
   return exitCode;
-}
-
-static void ThrowException_if_Error(HRESULT res)
-{
-  if (res != S_OK)
-    throw CSystemException(res);
 }
 
 static void PrintNum(UInt64 val, unsigned numDigits, char c = ' ')
@@ -891,11 +919,37 @@ int Main2(
     return StartInServerMode();
   }
 
-  return MainV(commandStrings);
+  CREATE_CODECS_OBJECT
+
+  ThrowException_if_Error(codecs->Load());
+  Codecs_AddHashArcHandler(codecs);
+
+  #ifdef EXTERNAL_CODECS
+  {
+    g_ExternalCodecs_Ptr = &__externalCodecs;
+    UString s;
+    codecs->GetCodecsErrorMessage(s);
+    if (!s.IsEmpty())
+    {
+      CStdOutStream &so = (g_StdStream ? *g_StdStream : g_StdOut);
+      so << endl << s << endl;
+    }
+  }
+  #endif
+
+  return MainV(commandStrings, codecs
+  #ifdef EXTERNAL_CODECS
+    ,__externalCodecs
+  #endif
+  );
 }
 
 static int MainV(
-  UStringVector &commandStrings
+  UStringVector &commandStrings,
+  CCodecs *codecs
+  #ifdef EXTERNAL_CODECS
+  , CExternalCodecs &__externalCodecs
+  #endif
 )
 {
   if (commandStrings.Size() == 0)
@@ -1002,24 +1056,10 @@ static int MainV(
     #endif
   }
 
-  CREATE_CODECS_OBJECT
-
   codecs->CaseSensitive_Change = options.CaseSensitive_Change;
   codecs->CaseSensitive = options.CaseSensitive;
-  ThrowException_if_Error(codecs->Load());
-  Codecs_AddHashArcHandler(codecs);
-
-  #ifdef EXTERNAL_CODECS
-  {
-    g_ExternalCodecs_Ptr = &__externalCodecs;
-    UString s;
-    codecs->GetCodecsErrorMessage(s);
-    if (!s.IsEmpty())
-    {
-      CStdOutStream &so = (g_StdStream ? *g_StdStream : g_StdOut);
-      so << endl << s << endl;
-    }
-  }
+  #ifdef EXTERNAL_CODECS  
+  if (codecs->CaseSensitive_Change) codecs->UpdateCaseSensitive();
   #endif
 
   const bool isExtractGroupCommand = options.Command.IsFromExtractGroup();

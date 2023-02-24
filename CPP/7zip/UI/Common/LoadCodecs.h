@@ -345,6 +345,7 @@ public:
   HRESULT LoadCodecs();
   HRESULT LoadFormats();
   HRESULT LoadDll(const FString &path, bool needCheckDll, bool *loadedOK = NULL);
+  void UpdateCaseSensitive();
   HRESULT LoadDllsFromFolder(const FString &folderPrefix);
 
   HRESULT CreateArchiveHandler(const CArcInfoEx &ai, bool outHandler, void **archive) const
