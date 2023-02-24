@@ -312,6 +312,11 @@ static int StartInServerMode()
   g_StdOut << "## SRV-MODE | 7z"
     PROG_POSTFIX " interactive server mode | "
     "type exit to stop interactive server mode" << endl;
+
+  HANDLE h_StdIn = GetStdHandle(STD_INPUT_HANDLE);
+  DWORD conMode = 0;
+  if (!GetConsoleMode(h_StdIn, &conMode)) conMode = 0;
+
   UString scannedString;
   int errCode;
   UString errMsg;
@@ -321,19 +326,22 @@ static int StartInServerMode()
 
       errCode = 0; errMsg = kNoErr;
       g_StdOut << endl << "# ";
+      g_StdStream->Flush();
       if (!g_StdIn.ScanUStringUntilNewLine(scannedString))
         break;
       if (!scannedString.Len() && g_StdIn.Eof())
         break;
       if (scannedString.IsEqualTo("exit"))
         break;
-      // g_StdOut << "inp: " << scannedString << endl;
+      if (!(conMode & ENABLE_ECHO_INPUT)) {
+        g_StdOut << scannedString << endl;
+        g_StdStream->Flush();
+      }
 
       UStringVector commandStrings;
       commandStrings.Add(DisableHeaders);
       NCommandLineParser::SplitCommandLine(scannedString, commandStrings, false);
       MainV(commandStrings);
-    
     }
     catch(const CNewException &)
     {
