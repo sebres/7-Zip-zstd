@@ -927,7 +927,7 @@ STDMETHODIMP CZipContextMenu::QueryContextMenu(HMENU hMenu, UINT indexMenu,
           menu.Attach(hMenu);
           // menuDestroyer_CRC.Disable();
         }
-        MyAddSubMenu(_commandMap, kCheckSumCascadedVerb, menu, indexInParent++, currentCommandID++, (UString)"CRC SHA", subMenu,
+        MyAddSubMenu(_commandMap, kCheckSumCascadedVerb, menu, indexInParent++, currentCommandID++, (UString)"7-Zip ZS Hash", subMenu,
           /* insertHashMenuTo7zipMenu ? NULL : */ bitmap);
         _commandMap.Back().CtxCommandType = CtxCommandType_CrcRoot;
         if (!insertHashMenuTo7zipMenu)
