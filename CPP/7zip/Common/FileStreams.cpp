@@ -2,7 +2,7 @@
 
 #include "StdAfx.h"
 
-// #include <stdio.h>
+#include <io.h>
 
 #ifndef _WIN32
 #include <fcntl.h>
@@ -715,17 +715,30 @@ HRESULT COutFileStream::GetSize(UInt64 *size)
   return ConvertBoolToHRESULT(File.GetLength(*size));
 }
 
+
+FILE *CStdOutFileStream::defOut = stdout;
+
 #ifdef UNDER_CE
+
+CStdOutFileStream::CStdOutFileStream(): _size(0) {}
 
 STDMETHODIMP CStdOutFileStream::Write(const void *data, UInt32 size, UInt32 *processedSize)
 {
-  size_t s2 = fwrite(data, 1, size, stdout);
+  size_t s2 = fwrite(data, 1, size, defOut);
   if (processedSize)
     *processedSize = s2;
   return (s2 == size) ? S_OK : E_FAIL;
 }
 
 #else
+
+CStdOutFileStream::CStdOutFileStream(): _size(0)
+{
+  outfno = _fileno(defOut);
+  #ifdef _WIN32
+  outfh = (HANDLE)_get_osfhandle(outfno);
+  #endif
+}
 
 STDMETHODIMP CStdOutFileStream::Write(const void *data, UInt32 size, UInt32 *processedSize)
 {
@@ -743,7 +756,7 @@ STDMETHODIMP CStdOutFileStream::Write(const void *data, UInt32 size, UInt32 *pro
     UInt32 sizeTemp = (1 << 15);
     if (sizeTemp > size)
       sizeTemp = size;
-    res = ::WriteFile(GetStdHandle(STD_OUTPUT_HANDLE),
+    res = ::WriteFile(outfh,
         data, sizeTemp, (DWORD *)&realProcessedSize, NULL);
     _size += realProcessedSize;
     size -= realProcessedSize;
@@ -759,7 +772,7 @@ STDMETHODIMP CStdOutFileStream::Write(const void *data, UInt32 size, UInt32 *pro
 
   do
   {
-    res = write(1, data, (size_t)size);
+    res = write(outfno, data, (size_t)size);
   }
   while (res < 0 && (errno == EINTR));
   

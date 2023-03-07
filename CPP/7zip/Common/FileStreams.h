@@ -7,6 +7,8 @@
 #define USE_WIN_FILE
 #endif
 
+#include <stdio.h>
+
 #include "../../Common/MyCom.h"
 #include "../../Common/MyString.h"
 
@@ -171,11 +173,14 @@ class CStdOutFileStream:
   public CMyUnknownImp
 {
   UInt64 _size;
+  int outfno;
+  HANDLE outfh;
 public:
   MY_UNKNOWN_IMP
 
+  static FILE *defOut;
   UInt64 GetSize() const { return _size; }
-  CStdOutFileStream(): _size(0) {}
+  CStdOutFileStream();
   virtual ~CStdOutFileStream() {}
   STDMETHOD(Write)(const void *data, UInt32 size, UInt32 *processedSize);
 };

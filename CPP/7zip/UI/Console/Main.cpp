@@ -348,12 +348,17 @@ static int StartInServerMode()
   #endif
 
   UString scannedString;
+  CStdOutStream orgStdOut = g_StdOut, orgStdErr = g_StdErr, 
+      *redirStdStream, *redirErrStream;
+  FILE *redirOutF, *redirErrF;
   int errCode;
   UString errMsg;
   UString DisableHeaders("-ba");
   do {
     try {
 
+      redirOutF = 0; redirErrF = 0;
+      redirStdStream = NULL; redirErrStream = NULL;
       errCode = 0; errMsg = kNoErr;
       g_StdOut << endl << "# ";
       g_StdStream->Flush();
@@ -371,11 +376,80 @@ static int StartInServerMode()
       UStringVector commandStrings;
       commandStrings.Add(DisableHeaders);
       NCommandLineParser::SplitCommandLine(scannedString, commandStrings, false);
+
+      // try to find redirect tokens in command:
+      if (commandStrings.Size() > 2) {
+        UString redirOut, redirErr;
+        for (unsigned i = commandStrings.Size()-1; i > 0; i--) {
+          UString & p = commandStrings[i];
+          // redirect as single parameter (prefix in parameter, like ">file"):
+          if (p.IsPrefixedBy(L">")) {
+            redirOut = p.Mid(1, p.Len()-1);
+            commandStrings.Delete(i);
+          } else if (p.IsPrefixedBy(L"1>")) {
+            redirOut = p.Mid(2, p.Len()-2);
+            commandStrings.Delete(i);
+          } else if (p.IsPrefixedBy(L"2>")) {
+            redirErr = p.Mid(2, p.Len()-2);
+            commandStrings.Delete(i);
+          } else if (i > 0) {
+            // redirect with 2 parameters (like > file):
+            UString & p2 = commandStrings[--i];
+            if (p2.Len() < 1 || p2.Len() > 2) {
+              break;
+            }
+            if (p2.IsEqualTo(">") || p2.IsEqualTo("1>")) {
+              redirOut = p;
+              commandStrings.DeleteFrom(i);
+            } else if (p2.IsEqualTo("2>")) {
+              redirErr = p;
+              commandStrings.DeleteFrom(i);
+            } else {
+              break;
+            }
+          } else {
+            break;
+          }
+        }
+        // g_StdOut << "  cmd (" << commandStrings.Size() << "): " << commandStrings.Front() << " ... " << commandStrings.Back() << endl;
+        if (!redirErr.IsEmpty()) {
+          // g_StdOut << "  stderr > " << redirErr << endl;
+          redirErrF = _wfopen(redirErr, L"wt");
+          if (!redirErrF) {
+            errCode = errno;
+            throw (UString("Can't redirect stderr to ") + redirErr);
+          }
+          g_ErrStream = redirErrStream = new CStdOutStream(redirErrF);
+          g_StdErr = *g_ErrStream;
+        }
+        if (!redirOut.IsEmpty()) {
+          // g_StdOut << "  stdout > " << redirOut << endl;
+          redirOutF = _wfopen(redirOut, L"wt");
+          if (!redirOutF) {
+            errCode = errno;
+            throw (UString("Can't redirect stdout to ") + redirOut);
+          }
+          CStdOutFileStream::defOut = redirOutF;
+          g_StdStream = redirStdStream = new CStdOutStream(redirOutF);
+          g_StdOut = *g_StdStream;
+        }
+      }
+
       MainV(commandStrings, codecs
       #ifdef EXTERNAL_CODECS
         ,__externalCodecs
       #endif
       );
+
+      // end of redirect - close output stream here (to throw an error if it fails):
+      if (redirOutF) {
+        if (fclose(redirOutF) != 0) {
+          errCode = errno;
+          throw (UString("Error closing output channel"));
+        }
+        redirOutF = 0;
+      }
+
     }
     catch(const CNewException &)
     {
@@ -421,25 +495,25 @@ static int StartInServerMode()
     {
       errMsg = (kExceptionErrorMessage);
       errMsg += s;
-      errCode = (NExitCode::kFatalError);
+      if (!errCode) errCode = (NExitCode::kFatalError);
     }
     catch(const AString &s)
     {
       errMsg = (kExceptionErrorMessage);
       errMsg += s;
-      errCode = (NExitCode::kFatalError);
+      if (!errCode) errCode = (NExitCode::kFatalError);
     }
     catch(const char *s)
     {
       errMsg = (kExceptionErrorMessage);
       errMsg += s;
-      errCode = (NExitCode::kFatalError);
+      if (!errCode) errCode = (NExitCode::kFatalError);
     }
     catch(const wchar_t *s)
     {
       errMsg = (kExceptionErrorMessage);
       errMsg += s;
-      errCode = (NExitCode::kFatalError);
+      if (!errCode) errCode = (NExitCode::kFatalError);
     }
     catch(int t)
     {
@@ -458,6 +532,26 @@ static int StartInServerMode()
         *g_ErrStream << "<< ERROR | " << errMsg << ", ECODE: " << errCode << endl;
       if (errCode == NExitCode::kMemoryError || errCode == NExitCode::kUserBreak)
         return errCode;
+    }
+    // end of redirect - restore streams:
+    if (redirOutF) {
+      fclose(redirOutF);
+      redirOutF = 0;
+    }
+    if (redirStdStream) {
+      delete redirStdStream;
+      CStdOutFileStream::defOut = stdout;
+      g_StdOut = orgStdOut;
+      g_StdStream = &g_StdOut;
+    }
+    if (redirErrF) {
+      fclose(redirErrF);
+      redirErrF = 0;
+    }
+    if (redirErrStream) {
+      delete redirErrStream;
+      g_StdErr = orgStdErr;
+      g_ErrStream = &g_StdErr;
     }
   } while (1);
   return 0;
