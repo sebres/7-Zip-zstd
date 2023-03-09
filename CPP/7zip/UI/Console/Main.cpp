@@ -380,12 +380,14 @@ static int StartInServerMode()
       // try to find redirect tokens in command:
       if (commandStrings.Size() > 2) {
         UString redirOut, redirErr;
+        int fullStdRedir = 1;
         for (unsigned i = commandStrings.Size()-1; i > 0; i--) {
           UString & p = commandStrings[i];
           // redirect as single parameter (prefix in parameter, like ">file"):
           if (p.IsPrefixedBy(L">")) {
             redirOut = p.Mid(1, p.Len()-1);
             commandStrings.Delete(i);
+            fullStdRedir = 0; // redirect CStdOutFileStream only (e. g. -so)
           } else if (p.IsPrefixedBy(L"1>")) {
             redirOut = p.Mid(2, p.Len()-2);
             commandStrings.Delete(i);
@@ -398,7 +400,11 @@ static int StartInServerMode()
             if (p2.Len() < 1 || p2.Len() > 2) {
               break;
             }
-            if (p2.IsEqualTo(">") || p2.IsEqualTo("1>")) {
+            if (p2.IsEqualTo(">")) {
+              redirOut = p;
+              commandStrings.DeleteFrom(i);
+              fullStdRedir = 0; // redirect CStdOutFileStream only (e. g. -so)
+            } else if (p2.IsEqualTo("1>")) {
               redirOut = p;
               commandStrings.DeleteFrom(i);
             } else if (p2.IsEqualTo("2>")) {
@@ -430,8 +436,10 @@ static int StartInServerMode()
             throw (UString("Can't redirect stdout to ") + redirOut);
           }
           CStdOutFileStream::defOut = redirOutF;
-          g_StdStream = redirStdStream = new CStdOutStream(redirOutF);
-          g_StdOut = *g_StdStream;
+          if (fullStdRedir) {
+            g_StdStream = redirStdStream = new CStdOutStream(redirOutF);
+            g_StdOut = *g_StdStream;
+          }
         }
       }
 
@@ -538,9 +546,11 @@ static int StartInServerMode()
       fclose(redirOutF);
       redirOutF = 0;
     }
+    CStdOutFileStream::defOut = stdout;
     if (redirStdStream) {
       delete redirStdStream;
-      CStdOutFileStream::defOut = stdout;
+    }
+    if (g_StdStream != &g_StdOut) {
       g_StdOut = orgStdOut;
       g_StdStream = &g_StdOut;
     }
@@ -550,6 +560,8 @@ static int StartInServerMode()
     }
     if (redirErrStream) {
       delete redirErrStream;
+    }
+    if (g_ErrStream != &g_StdErr) {
       g_StdErr = orgStdErr;
       g_ErrStream = &g_StdErr;
     }
