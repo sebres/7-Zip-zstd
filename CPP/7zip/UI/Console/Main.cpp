@@ -443,7 +443,7 @@ static int StartInServerMode()
         }
       }
 
-      MainV(commandStrings, codecs
+      errCode = MainV(commandStrings, codecs
       #ifdef EXTERNAL_CODECS
         ,__externalCodecs
       #endif
@@ -534,6 +534,9 @@ static int StartInServerMode()
       errCode = (NExitCode::kFatalError);
     }
     if (errCode != 0 || errMsg.Len()) {
+      if (!errMsg.Len()) {
+        errMsg = (kUnknownExceptionMessage);
+      }
       if (g_StdStream)
         g_StdStream->Flush();
       if (g_ErrStream)
