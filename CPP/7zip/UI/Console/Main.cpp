@@ -318,7 +318,7 @@ static const char * const kUserBreakMessage  = "Break signaled";
 static const char * const kMemoryExceptionMessage = "Can't allocate required memory!";
 static const char * const kUnknownExceptionMessage = "Unknown Error";
 static const char * const kInternalExceptionMessage = "Internal Error # ";
-static int StartInServerMode()
+static int StartInServerMode(UStringVector &commandStrings)
 {
   ShowCopyrightAndHelp(g_StdStream, false);
   g_StdOut << "## SRV-MODE | 7z"
@@ -328,6 +328,19 @@ static int StartInServerMode()
   HANDLE h_StdIn = GetStdHandle(STD_INPUT_HANDLE);
   DWORD conMode = 0;
   if (!GetConsoleMode(h_StdIn, &conMode)) conMode = 0;
+
+  if (commandStrings.Size() == 2) {
+    UString p = commandStrings[1];
+    if (p.IsPrefixedBy(L"-scc")) {
+      p = p.Mid(4, p.Len()-4);
+      Int32 cp = FindCharset(p, true);
+      g_StdOut.SetCodePage(cp);
+      g_StdErr.SetCodePage(cp);
+      g_StdIn.SetCodePage(cp);
+    } else {
+      ShowMessageAndThrowException(kUserErrorMessage, NExitCode::kUserError);
+    }
+  }
 
   CREATE_CODECS_OBJECT
 
@@ -373,7 +386,21 @@ static int StartInServerMode()
         g_StdStream->Flush();
       }
 
-      UStringVector commandStrings;
+      /*
+      // command to change default codepage of std-channels (utf-8, unicode)?
+      if (scannedString.IsPrefixedBy(L"chcp")) {
+        NCommandLineParser::SplitCommandLine(scannedString, commandStrings, false);
+        if (commandStrings.Size() == 2 && commandStrings[0].IsEqualTo("chcp")) {
+          Int32 cp = FindCharset(commandStrings[1], true);
+          g_StdOut.SetCodePage(cp); orgStdOut = g_StdOut;
+          g_StdErr.SetCodePage(cp); orgStdErr = g_StdErr;
+          g_StdIn.SetCodePage(cp);
+          continue;
+        }
+      }
+      */
+
+      commandStrings.Clear();
       commandStrings.Add(DisableHeaders);
       NCommandLineParser::SplitCommandLine(scannedString, commandStrings, false);
 
@@ -1024,8 +1051,8 @@ int Main2(
     commandStrings.Delete(0);
   #endif
 
-  if (commandStrings.Size() == 1 && commandStrings[0].IsEqualTo("--srv-mode")) {
-    return StartInServerMode();
+  if ((commandStrings.Size() == 1 || commandStrings.Size() == 2) && commandStrings[0].IsEqualTo("--srv-mode")) {
+    return StartInServerMode(commandStrings);
   }
 
   CREATE_CODECS_OBJECT
@@ -1135,9 +1162,9 @@ static int MainV(
     }
     */
     
-    if (stdout_cp != -1) g_StdOut.CodePage = stdout_cp;
-    if (stderr_cp != -1) g_StdErr.CodePage = stderr_cp;
-    if (stdin_cp != -1) g_StdIn.CodePage = stdin_cp;
+    if (stdout_cp != -1) g_StdOut.SetCodePage(stdout_cp);
+    if (stderr_cp != -1) g_StdErr.SetCodePage(stderr_cp);
+    if (stdin_cp != -1) g_StdIn.SetCodePage(stdin_cp);
   }
 
   unsigned percentsNameLevel = 1;

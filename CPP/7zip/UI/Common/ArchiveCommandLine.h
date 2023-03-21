@@ -157,4 +157,6 @@ public:
   void Parse2(CArcCmdLineOptions &options);
 };
 
+Int32 FindCharset(UString name, bool byteOnlyCodePages);
+
 #endif

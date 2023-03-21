@@ -36,6 +36,8 @@ public:
   bool Eof() const throw() { return (feof(_stream) != 0); }
   bool Error() const throw() { return (ferror(_stream) != 0); }
 
+  int SetCodePage(int CodePage);
+
   int GetChar();
 };
 

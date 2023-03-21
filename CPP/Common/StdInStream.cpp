@@ -9,6 +9,8 @@
 #include "StdInStream.h"
 #include "StringConvert.h"
 #include "UTFConvert.h"
+#include <io.h>
+#include <fcntl.h>
 
 // #define kEOFMessage "Unexpected end of input stream"
 // #define kReadErrorMessage "Error reading input stream"
@@ -46,11 +48,10 @@ bool CStdInStream::ScanAStringUntilNewLine(AString &s)
   for (;;)
   {
     int intChar = GetChar();
-    if (intChar == EOF)
-      return true;
+    if (intChar == EOF) {
+      return ferror(_stream) == 0; // true on eof, false on error
+    }
     char c = (char)intChar;
-    if (c == 0)
-      return false;
     if (c == '\n')
       return true;
     s += c;
@@ -60,16 +61,27 @@ bool CStdInStream::ScanAStringUntilNewLine(AString &s)
 bool CStdInStream::ScanUStringUntilNewLine(UString &dest)
 {
   dest.Empty();
-  AString s;
-  bool res = ScanAStringUntilNewLine(s);
   int codePage = CodePage;
   if (codePage == -1)
     codePage = CP_OEMCP;
-  if (codePage == CP_UTF8)
-    ConvertUTF8ToUnicode(s, dest);
-  else
+  if (codePage == CP_UNICODE) {
+    for (;;)
+    {
+      wint_t c = fgetwc(_stream);
+      if (c == WEOF) {
+         return ferror(_stream) == 0; // true on eof, false on error
+      }
+      if (c == '\n')
+        return true;
+      dest += (wchar_t)c;
+    }
+  }
+  else {
+    AString s;
+    bool res = ScanAStringUntilNewLine(s);
     MultiByteToUnicodeString2(dest, s, (UINT)codePage);
-  return res;
+    return res;
+  }
 }
 
 /*
@@ -88,6 +100,17 @@ bool CStdInStream::ReadToString(AString &resultString)
   }
 }
 */
+
+int CStdInStream::SetCodePage(int codePage)
+{
+  CodePage = codePage;
+  if (codePage == CP_UNICODE) {
+    _setmode(_fileno(_stream), _O_WTEXT);
+  } else {
+    _setmode(_fileno(_stream), _O_TEXT);
+  }
+  return 0;
+}
 
 int CStdInStream::GetChar()
 {

@@ -1174,24 +1174,20 @@ struct CCodePagePair
   UInt32 CodePage;
 };
 
-static const unsigned kNumByteOnlyCodePages = 3;
+static const unsigned kNumByteOnlyCodePages = 4;
 
 static const CCodePagePair g_CodePagePairs[] =
 {
   { "utf-8", CP_UTF8 },
   { "win", CP_ACP },
   { "dos", CP_OEMCP },
+  { "unicode", CP_UNICODE },
   { "utf-16le", MY__CP_UTF16 },
   { "utf-16be", MY__CP_UTF16BE }
 };
 
-static Int32 FindCharset(const NCommandLineParser::CParser &parser, unsigned keyIndex,
-    bool byteOnlyCodePages, Int32 defaultVal)
+Int32 FindCharset(UString name, bool byteOnlyCodePages)
 {
-  if (!parser[keyIndex].ThereIs)
-    return defaultVal;
-
-  UString name (parser[keyIndex].PostStrings.Back());
   UInt32 v;
   if (StringToUInt32(name, v))
     if (v < ((UInt32)1 << 16))
@@ -1208,6 +1204,15 @@ static Int32 FindCharset(const NCommandLineParser::CParser &parser, unsigned key
   }
 }
 
+static Int32 FindCharset(const NCommandLineParser::CParser &parser, unsigned keyIndex,
+    bool byteOnlyCodePages, Int32 defaultVal)
+{
+  if (!parser[keyIndex].ThereIs)
+    return defaultVal;
+
+  UString name (parser[keyIndex].PostStrings.Back());
+  return FindCharset(name, byteOnlyCodePages);
+}
 
 static void SetBoolPair(NCommandLineParser::CParser &parser, unsigned switchID, CBoolPair &bp)
 {
