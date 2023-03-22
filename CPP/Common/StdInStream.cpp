@@ -42,19 +42,26 @@ bool CStdInStream::Close() throw()
   return !_streamIsOpen;
 }
 
-bool CStdInStream::ScanAStringUntilNewLine(AString &s)
+#define MAX_CH_READ 1024
+
+bool CStdInStream::ScanAStringUntilNewLine(AString &dest)
 {
-  s.Empty();
+  char buf[MAX_CH_READ];
+  char *s;
+  dest.Empty();
   for (;;)
   {
-    int intChar = GetChar();
-    if (intChar == EOF) {
+    s = fgets(buf, MAX_CH_READ, _stream);
+    if (!s) {
       return ferror(_stream) == 0; // true on eof, false on error
     }
-    char c = (char)intChar;
-    if (c == '\n')
+    s = buf + strlen(buf) - 1; // end of current line
+    if (*s == '\n') {
+      *s = 0;
+      dest += buf;
       return true;
-    s += c;
+    }
+    dest += buf;
   }
 }
 
@@ -65,15 +72,21 @@ bool CStdInStream::ScanUStringUntilNewLine(UString &dest)
   if (codePage == -1)
     codePage = CP_OEMCP;
   if (codePage == CP_UNICODE) {
+    wchar_t buf[MAX_CH_READ];
+    wchar_t *s;
     for (;;)
     {
-      wint_t c = fgetwc(_stream);
-      if (c == WEOF) {
-         return ferror(_stream) == 0; // true on eof, false on error
+      s = fgetws(buf, MAX_CH_READ, _stream);
+      if (!s) {
+        return ferror(_stream) == 0; // true on eof, false on error
       }
-      if (c == '\n')
+      s = buf + wcslen(buf) - 1; // end of current line
+      if (*s == '\n') {
+        *s = 0;
+        dest += buf;
         return true;
-      dest += (wchar_t)c;
+      }
+      dest += buf;
     }
   }
   else {
