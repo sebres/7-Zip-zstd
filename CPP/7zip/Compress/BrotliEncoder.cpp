@@ -135,7 +135,7 @@ STDMETHODIMP CEncoder::Code(ISequentialInStream *inStream,
 
   /* 2) create compression context, if needed */
   if (!_ctx)
-    _ctx = BROTLIMT_createCCtx(_numThreads, _props._level, _inputSize, 
+    _ctx = BROTLIMT_createCCtx(_numThreads, unpackSize, _props._level, _inputSize, 
       _WindowLog >= 0 ? _WindowLog : BROTLI_MAX_WINDOW_BITS);
   if (!_ctx)
     return S_FALSE;
@@ -154,7 +154,7 @@ STDMETHODIMP CEncoder::Code(ISequentialInStream *inStream,
 STDMETHODIMP CEncoder::SetNumberOfThreads(UInt32 numThreads)
 {
   const UInt32 kNumThreadsMax = BROTLIMT_THREAD_MAX;
-  if (numThreads < 1) numThreads = 1;
+  if (numThreads < 0) numThreads = 0;
   if (numThreads > kNumThreadsMax) numThreads = kNumThreadsMax;
   _numThreads = numThreads;
   return S_OK;
