@@ -176,6 +176,7 @@ enum Enum
 
   #ifndef _NO_CRYPTO
   , kPassword
+  , kEncKey
   #endif
 };
 
@@ -324,6 +325,7 @@ static const CSwitchForm kSwitchForms[] =
 
   #ifndef _NO_CRYPTO
   , { "p", SWFRM_STRING }
+  , { "ekey", SWFRM_STRING }
   #endif
 };
 
@@ -1362,8 +1364,18 @@ void CArcCmdLineParser::Parse2(CArcCmdLineOptions &options)
 
   #ifndef _NO_CRYPTO
   options.PasswordEnabled = parser[NKey::kPassword].ThereIs;
-  if (options.PasswordEnabled)
+  if (options.PasswordEnabled) {
     options.Password = parser[NKey::kPassword].PostStrings[0];
+  } else {
+    options.PasswordEnabled = parser[NKey::kEncKey].ThereIs;
+    if (options.PasswordEnabled) {
+      options.Password = parser[NKey::kEncKey].PostStrings[0];
+      unsigned keyLen = options.Password.HexKeyToBytes(0);
+      if (!keyLen || (keyLen != 32 && keyLen != (32+16))) { /* kKeySize ?+ kIvSizeMax? */
+        throw CArcCmdLineException("Invalid key specified (must be hex, 32?+16? bytes)");
+      }
+    }
+  }
   #endif
 
   options.ShowDialog = parser[NKey::kShowDialog].ThereIs;

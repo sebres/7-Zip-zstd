@@ -581,6 +581,7 @@ public:
   explicit UString(const char *s);
   explicit UString(const AString &s);
   UString(const wchar_t *s);
+  UString(const wchar_t *s, unsigned len);
   UString(const UString &s);
   ~UString() { MY_STRING_DELETE(_chars); }
 
@@ -734,6 +735,8 @@ public:
     }
   }
   
+  unsigned HexKeyToBytes(uint8_t phase);
+  
   void Wipe_and_Empty()
   {
     if (_chars)
@@ -750,6 +753,7 @@ class UString_Wipe: public UString
   CLASS_NO_COPY(UString_Wipe)
 public:
   UString_Wipe(): UString() {}
+  UString_Wipe(const wchar_t *s, unsigned len): UString(s, len) {}
   // UString_Wipe(const UString &s): UString(s) {}
   // UString_Wipe &operator=(const UString &s) { UString::operator=(s); return *this; }
   // UString_Wipe &operator=(const wchar_t *s) { UString::operator=(s); return *this; }

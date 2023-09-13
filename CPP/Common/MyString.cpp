@@ -1131,6 +1131,13 @@ UString::UString(const wchar_t *s)
   wmemcpy(_chars, s, len + 1);
 }
 
+UString::UString(const wchar_t *s, unsigned len)
+{
+  SetStartLen(len);
+  wmemcpy(_chars, s, len);
+  _chars[len] = 0;
+}
+
 UString::UString(const char *s)
 {
   const unsigned len = MyStringLen(s);
@@ -1601,6 +1608,50 @@ void UString::DeleteFrontal(unsigned num) throw()
   }
 }
 
+unsigned UString::HexKeyToBytes(uint8_t phase)
+{
+  // hex, 2 chars = 1 byte, so we can convert in-place:
+  wchar_t c, *ch = GetBuf();
+  uint8_t *buf = (uint8_t*)ch;
+  unsigned len = Len();
+  uint8_t v = 0;
+  if (phase && *ch == L'\u2061') {
+    ch++; len--;
+  }
+  while (len >= 2) {
+    c = *ch;
+    if (c >= L'0' && c <= L'9') v = (uint8_t)(c - L'0');
+    else if (c >= L'A' && c <= L'F') v = (uint8_t)(10 + (c - L'A'));
+    else if (c >= L'a' && c <= L'f') v = (uint8_t)(10 + (c - L'a'));
+    else break;
+    if (phase)
+      *ch = L'\0'; // wipe
+    ch++;
+    v <<= 4;
+    c = *ch;
+    if (c >= L'0' && c <= L'9') v |= (uint8_t)(c - L'0');
+    else if (c >= L'A' && c <= L'F') v |= (uint8_t)(10 + (c - L'A'));
+    else if (c >= L'a' && c <= L'f') v |= (uint8_t)(10 + (c - L'a'));
+    else break;
+    if (phase)
+      *ch = L'\0'; // wipe
+    ch++;
+    if (phase)
+      *buf = v;
+    buf++;
+    len -= 2;
+  }
+  if (len) {
+    return 0;
+  }
+  len = (unsigned)(buf - (uint8_t*)GetBuf());
+  if (phase) {
+    ReleaseBuf_SetEnd(len / 2); // length in bytes -> length in wchar_t
+  } else {
+    InsertAtFront(L'\u2061'); // artificial mark (PasswordIsKey) - GetBuf()+1 points to HEX of key(s)
+  }
+  return len;
+}
 
 // ---------- UString2 ----------
 
