@@ -734,7 +734,10 @@ public:
       _chars[index] = 0;
     }
   }
-  
+
+  /* non-printable char as artifical mark signaling that password is a key */
+  #define PWD_IS_HEX_KEY_MARK L'\u2061'
+
   unsigned HexKeyToBytes(uint8_t phase);
   
   void Wipe_and_Empty()

@@ -1615,7 +1615,7 @@ unsigned UString::HexKeyToBytes(uint8_t phase)
   uint8_t *buf = (uint8_t*)ch;
   unsigned len = Len();
   uint8_t v = 0;
-  if (phase && *ch == L'\u2061') {
+  if (phase && *ch == PWD_IS_HEX_KEY_MARK) {
     ch++; len--;
   }
   while (len >= 2) {
@@ -1648,7 +1648,7 @@ unsigned UString::HexKeyToBytes(uint8_t phase)
   if (phase) {
     ReleaseBuf_SetEnd(len / 2); // length in bytes -> length in wchar_t
   } else {
-    InsertAtFront(L'\u2061'); // artificial mark (PasswordIsKey) - GetBuf()+1 points to HEX of key(s)
+    InsertAtFront(PWD_IS_HEX_KEY_MARK); // artificial mark (PasswordIsKey) - GetBuf()+1 points to HEX of key(s)
   }
   return len;
 }

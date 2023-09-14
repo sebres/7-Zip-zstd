@@ -302,7 +302,7 @@ STDMETHODIMP CBaseCoder::CryptoSetPassword(const Byte *data, UInt32 size)
   _key.Password.CopyFrom(data, (size_t)size);
 
   // if starts with artificial mark (PasswordIsKey) - data+1 points to HEX of key(s)
-  if (size >= (32*2+1)*2 && *(wchar_t*)data == L'\u2061') {
+  if (size >= (32*2+1)*2 && *(wchar_t*)data == PWD_IS_HEX_KEY_MARK) {
     UString_Wipe pwdBuf((wchar_t*)data, size/2);
     unsigned keyLen = pwdBuf.HexKeyToBytes(1);
     if (keyLen != kKeySize && keyLen != kKeySize+sizeof(_iv)) {
