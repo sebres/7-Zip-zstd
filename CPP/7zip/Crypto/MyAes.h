@@ -40,7 +40,7 @@ class CAesCoder:
 public:
   CAesCoder(bool encodeMode, unsigned keySize, bool ctrMode);
   
-  virtual ~CAesCoder() {};   // we need virtual destructor for derived classes
+  ~CAesCoder();
   
   MY_QUERYINTERFACE_BEGIN2(ICompressFilter)
   MY_QUERYINTERFACE_ENTRY(ICryptoProperties)

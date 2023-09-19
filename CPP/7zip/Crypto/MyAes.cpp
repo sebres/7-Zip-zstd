@@ -27,6 +27,13 @@ CAesCoder::CAesCoder(bool encodeMode, unsigned keySize, bool ctrMode):
   SetFunctions(0);
 }
 
+CAesCoder::~CAesCoder()
+{
+  // Wipe:
+  memset((Byte *)_aes, 0, _aes.Size());
+  memset(_iv, 0, sizeof(_iv));
+}
+
 STDMETHODIMP CAesCoder::Init()
 {
   AesCbc_Init(Aes(), _iv);
