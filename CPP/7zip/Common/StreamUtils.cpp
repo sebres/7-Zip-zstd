@@ -54,3 +54,31 @@ HRESULT WriteStream(ISequentialOutStream *stream, const void *data, size_t size)
   }
   return S_OK;
 }
+
+HRESULT WriteStreamRemPart(ISequentialOutStream *stream, void *data, size_t size, size_t *remSize) throw()
+{
+  HRESULT res = S_OK;
+  const void *cur = data; 
+  while (size > (!stream->Finalize ? MAX_REM_PART_SIZE : 0))
+  {
+    UInt32 curSize = (size < kBlockSize) ? (UInt32)size : kBlockSize;
+    UInt32 processedSizeLoc;
+    res = stream->Write(cur, curSize, &processedSizeLoc);
+    size -= processedSizeLoc;
+    if (res != S_OK) {
+      goto done;
+    }
+    cur = (const void *)((const Byte *)cur + processedSizeLoc);
+    if (processedSizeLoc == 0) {
+      if (stream->Finalize)
+        return E_FAIL;
+      break;
+    }
+  }
+  // move remaining part to the start of buffer (will be processed later):
+  if (size)
+    memmove(data, cur, size);
+done:
+  *remSize = size;
+  return S_OK;
+}

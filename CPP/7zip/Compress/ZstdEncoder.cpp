@@ -347,6 +347,9 @@ STDMETHODIMP CEncoder::Code(ISequentialInStream *inStream,
     //if (ZSTD_isError(err)) return E_INVALIDARG;
   }
 
+  outBuff.dst = _dstBuf;
+  outBuff.size = _dstBufSize; // buffer normally always larger than AES_BLOCK_SIZE, for possible padding of block if needed (if encryption in-place)
+  outBuff.pos = 0;
   for (;;) {
 
     /* read input */
@@ -354,26 +357,18 @@ STDMETHODIMP CEncoder::Code(ISequentialInStream *inStream,
     RINOK(ReadStream(inStream, _srcBuf, &srcSize));
 
     /* eof */
-    if (srcSize == 0)
+    inBuff.src = _srcBuf;
+    inBuff.size = srcSize;
+    inBuff.pos = 0;
+    if (srcSize == 0) {
+      inBuff.src = NULL;
       ZSTD_todo = ZSTD_e_end;
+    }
 
     /* compress data */
     _processedIn += srcSize;
 
     for (;;) {
-      outBuff.dst = _dstBuf;
-      outBuff.size = _dstBufSize;
-      outBuff.pos = 0;
-
-      if (ZSTD_todo == ZSTD_e_continue) {
-        inBuff.src = _srcBuf;
-        inBuff.size = srcSize;
-        inBuff.pos = 0;
-      } else {
-        inBuff.src = 0;
-        inBuff.size = srcSize;
-        inBuff.pos = 0;
-      }
 
       err = ZSTD_compressStream2(_ctx, &outBuff, &inBuff, ZSTD_todo);
       if (ZSTD_isError(err)) {
@@ -395,19 +390,27 @@ STDMETHODIMP CEncoder::Code(ISequentialInStream *inStream,
 
       /* write output */
       if (outBuff.pos) {
-        RINOK(WriteStream(outStream, _dstBuf, outBuff.pos));
+        size_t remPart;
+        RINOK(WriteStreamRemPart(outStream, _dstBuf, outBuff.pos, &remPart));
         _processedOut += outBuff.pos;
+        outBuff.pos = remPart;
       }
 
       if (progress)
         RINOK(progress->SetRatioInfo(&_processedIn, &_processedOut));
 
       /* done */
-      if (ZSTD_todo == ZSTD_e_end && err == 0)
+      if (ZSTD_todo == ZSTD_e_end && err == 0) {
+        outStream->Finalize = true; // should write to the end
+        size_t remPart;
+        RINOK(WriteStreamRemPart(outStream, _dstBuf, outBuff.pos, &remPart));
+        if (remPart)
+          return E_UNEXPECTED; // remPart must be 0
         return S_OK;
+      }
 
       /* need more input */
-      if (inBuff.pos == inBuff.size)
+      if (inBuff.pos == inBuff.size && inBuff.src)
         break;
     }
   }

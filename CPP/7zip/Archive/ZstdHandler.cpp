@@ -333,7 +333,6 @@ static HRESULT UpdateArchive(
 done:
   #ifndef _NO_CRYPTO
   if (aesStream) {
-    RINOK(aesStream->Finalize());
     delete aesStream;
   }
   #endif

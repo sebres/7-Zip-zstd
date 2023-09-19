@@ -60,6 +60,14 @@ STREAM_INTERFACE(ISequentialOutStream, 0x02)
     If the function returns error code, then (*processedSize) is size of
     data written from (data) buffer.
   */
+
+  bool Finalize = false;
+  /*
+  If set following write attempts are finalization.
+  So for instance AES wouldn't wait for AES_BLOCK_SIZE, rather simply does padding
+  and writes remaining part.
+  */
+
 };
 
 #ifdef _WIN32

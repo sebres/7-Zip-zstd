@@ -28,22 +28,15 @@ class CAesOutStream:
   Byte _Key[kKeySize];
   Byte _iv[kIvSizeMax];
 
-  unsigned _remSize;
-  //Byte _remBuf[AES_BLOCK_SIZE];
-  CAlignedBuffer _remBuf;
-  
 public:
 
   CAesOutStream():
     _aesFilter(NULL),
-    _outStream(NULL),
-    _remSize(0),
-    _remBuf(AES_BLOCK_SIZE)
+    _outStream(NULL)
     {};
 
   ~CAesOutStream();
 
-  HRESULT Finalize();
   HRESULT Init(ISequentialOutStream *outStream, UString &password);
 
   MY_UNKNOWN_IMP1(ISequentialOutStream)
