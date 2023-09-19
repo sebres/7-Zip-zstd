@@ -21,7 +21,7 @@
 
 #define INTERFACE_IOpenCallbackUI_Crypto(x) \
   virtual HRESULT Open_CryptoGetTextPassword(BSTR *password) x; \
-  /* virtual HRESULT Open_GetPasswordIfAny(bool &passwordIsDefined, UString &password) x; */ \
+  virtual HRESULT Open_GetPasswordIfAny(bool &passwordIsDefined, UString &password) x; \
   /* virtual bool Open_WasPasswordAsked() x; */ \
   /* virtual void Open_Clear_PasswordWasAsked_Flag() x; */  \
   
@@ -62,6 +62,7 @@ public:
 
   #ifndef _NO_CRYPTO
   STDMETHOD(CryptoGetTextPassword)(BSTR *password);
+  STDMETHOD(CryptoGetPasswordIfAny)(bool& passwordIsDefined, UString& password);
   #endif
 
   STDMETHOD(SetSubArchiveName(const wchar_t *name))

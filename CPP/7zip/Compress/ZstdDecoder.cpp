@@ -22,7 +22,7 @@ CDecoder::~CDecoder()
 {
   if (_ctx) {
     ZSTD_freeDCtx(_ctx);
-    MyFree(_srcBuf);
+    ISzAlloc_Free(&g_AlignedAlloc, _srcBuf);
     MyFree(_dstBuf);
   }
 }
@@ -69,7 +69,7 @@ HRESULT CDecoder::CodeSpec(ISequentialInStream * inStream,
     if (!_ctx)
       return E_OUTOFMEMORY;
 
-    _srcBuf = MyAlloc(_srcBufSize);
+    _srcBuf = ISzAlloc_Alloc(&g_AlignedAlloc, _srcBufSize); // aligned because of possible HW AES decryption
     if (!_srcBuf)
       return E_OUTOFMEMORY;
 
@@ -87,10 +87,10 @@ HRESULT CDecoder::CodeSpec(ISequentialInStream * inStream,
   }
 
   zOut.dst = _dstBuf;
-  srcBufLen = _srcBufSize;
+  srcBufLen = _srcBufSize; // buffer normally always larger than AES_BLOCK_SIZE (if decryption in-place, we need at least 16 bytes to decrypt)
 
   /* read first input block */
-  RINOK(ReadStream(inStream, _srcBuf, &srcBufLen));
+  RINOK(ReadStreamGreedy(inStream, _srcBuf, &srcBufLen));
   _processedIn += srcBufLen;
 
   zIn.src = _srcBuf;
@@ -143,8 +143,15 @@ HRESULT CDecoder::CodeSpec(ISequentialInStream * inStream,
           return E_FAIL;
 
         /* end of frame, but more data */
-        if (zIn.pos < zIn.size)
-          continue;
+        if (zIn.pos < zIn.size) {
+          // maybe PKCS#7 padding by decrypted block, if so - ignore it:
+          if (zIn.size >= 16 && zIn.size - zIn.pos <= 16) { // AES_BLOCK_SIZE
+            zIn.size -= GetPaddingSize((Byte*)_srcBuf + zIn.size);
+          }
+          if (zIn.pos < zIn.size) {
+            continue;
+          }
+        }
 
         /* read next input, or eof */
         break;
@@ -153,7 +160,7 @@ HRESULT CDecoder::CodeSpec(ISequentialInStream * inStream,
 
     /* read next input */
     srcBufLen = _srcBufSize;
-    RINOK(ReadStream(inStream, _srcBuf, &srcBufLen));
+    RINOK(ReadStreamGreedy(inStream, _srcBuf, &srcBufLen));
     _processedIn += srcBufLen;
 
     /* finished */

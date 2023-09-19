@@ -240,7 +240,8 @@ STDMETHODIMP CEncoder::Code(ISequentialInStream *inStream,
     if (!_srcBuf)
       return E_OUTOFMEMORY;
 
-    _dstBuf = ISzAlloc_Alloc(&g_AlignedAlloc, _dstBufSize); // aligned because of possible HW AES encryption
+    // aligned because of possible HW AES encryption, +16 = +AES_BLOCK_SIZE for PKCS#7 padding 16 * \x16
+    _dstBuf = ISzAlloc_Alloc(&g_AlignedAlloc, _dstBufSize+16);
     if (!_dstBuf)
       return E_OUTOFMEMORY;
 

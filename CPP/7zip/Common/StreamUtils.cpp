@@ -55,11 +55,47 @@ HRESULT WriteStream(ISequentialOutStream *stream, const void *data, size_t size)
   return S_OK;
 }
 
+HRESULT ReadStreamGreedy(ISequentialInStream *stream, void *data, size_t *processedSize) throw()
+{
+  size_t size = *processedSize;
+  *processedSize = 0;
+  do
+  {
+    UInt32 curSize = (size < kBlockSize) ? (UInt32)size : kBlockSize;
+    UInt32 processedSizeLoc;
+    HRESULT res = stream->Read(data, curSize, &processedSizeLoc);
+    *processedSize += processedSizeLoc;
+    data = (void *)((Byte *)data + processedSizeLoc);
+    size -= processedSizeLoc;
+    RINOK(res);
+    if (processedSizeLoc == 0)
+      return S_OK;
+  }
+  while (size > MAX_REM_PART_SIZE);
+  return S_OK;
+}
+
+UInt32 GetPaddingSize(Byte *dataEnd)
+{
+  // check padding present and estimate its length:
+  if (*(--dataEnd) <= 16) { // AES_BLOCK_SIZE
+    Byte padChar = *dataEnd--;
+    Byte padSize = padChar-1;
+    while (padSize && *dataEnd == padChar) {
+      padSize--; dataEnd--;
+    }
+    if (!padSize) {// valid PKCS#7 padding
+      return padChar; // size of padding = number of padding bytes
+    }
+  }
+  return 0;
+}
+
 HRESULT WriteStreamRemPart(ISequentialOutStream *stream, void *data, size_t size, size_t *remSize) throw()
 {
   HRESULT res = S_OK;
   const void *cur = data; 
-  while (size > (!stream->Finalize ? MAX_REM_PART_SIZE : 0))
+  do
   {
     UInt32 curSize = (size < kBlockSize) ? (UInt32)size : kBlockSize;
     UInt32 processedSizeLoc;
@@ -70,11 +106,12 @@ HRESULT WriteStreamRemPart(ISequentialOutStream *stream, void *data, size_t size
     }
     cur = (const void *)((const Byte *)cur + processedSizeLoc);
     if (processedSizeLoc == 0) {
-      if (stream->Finalize)
-        return E_FAIL;
+      if (stream->Finalize && size > 0)
+        return E_UNEXPECTED;
       break;
     }
   }
+  while (size > (!stream->Finalize ? MAX_REM_PART_SIZE : 0));
   // move remaining part to the start of buffer (will be processed later):
   if (size)
     memmove(data, cur, size);

@@ -25,6 +25,7 @@ class CAesOutStream:
   NCrypto::CAesCoder *_aesFilter;
   ISequentialOutStream *_outStream;
 
+  bool   paddingAdded;
   Byte _Key[kKeySize];
   Byte _iv[kIvSizeMax];
 
@@ -32,7 +33,8 @@ public:
 
   CAesOutStream():
     _aesFilter(NULL),
-    _outStream(NULL)
+    _outStream(NULL),
+    paddingAdded(false)
     {};
 
   ~CAesOutStream();
@@ -41,6 +43,40 @@ public:
 
   MY_UNKNOWN_IMP1(ISequentialOutStream)
   STDMETHOD(Write)(const void *data, UInt32 size, UInt32 *processedSize);
+};
+
+class CAesInStream:
+  public ISequentialInStream,
+  public CMyUnknownImp
+{
+  NCrypto::CAesCoder *_aesFilter;
+  ISequentialInStream *_inStream;
+
+  Byte _Key[kKeySize];
+  Byte _iv[kIvSizeMax];
+
+  bool Eof;
+  UInt32 _raheadSize;
+  CAlignedBuffer *_raheadBuf;
+
+public:
+
+  CAesInStream():
+    _aesFilter(NULL),
+    _inStream(NULL),
+    Eof(false),
+    _raheadSize(0),
+    _raheadBuf(NULL)
+    {};
+
+  ~CAesInStream();
+
+  HRESULT Init(ISequentialInStream *inStream, UString &password);
+
+  HRESULT ReadAhead(void* data, UInt32 size, UInt32* processedSize);
+
+  MY_UNKNOWN_IMP1(ISequentialInStream)
+  STDMETHOD(Read)(void *data, UInt32 size, UInt32 *processedSize);
 };
 
 }

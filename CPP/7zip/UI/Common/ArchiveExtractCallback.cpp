@@ -2413,6 +2413,18 @@ STDMETHODIMP CArchiveExtractCallback::CryptoGetTextPassword(BSTR *password)
   COM_TRY_END
 }
 
+STDMETHODIMP CArchiveExtractCallback::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+{
+  COM_TRY_BEGIN
+  if (!_cryptoGetTextPassword)
+  {
+    RINOK(_extractCallback2.QueryInterface(IID_ICryptoGetTextPassword,
+        &_cryptoGetTextPassword));
+  }
+  return _cryptoGetTextPassword->CryptoGetPasswordIfAny(passwordIsDefined, password);
+  COM_TRY_END
+}
+
 
 // ---------- HASH functions ----------
 
