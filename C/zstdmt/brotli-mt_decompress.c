@@ -318,6 +318,8 @@ static void *pt_decompress(void *arg)
 			wl->out.buf = 0;
 			wl->out.size = 0;
 			wl->out.allocated = 0;
+			wl->out.final = 0;
+			wl->out.max_rem_part = 0;
 			list_add(&wl->node, &ctx->writelist_busy);
 		}
 		pthread_mutex_unlock(&ctx->write_mutex);
@@ -389,6 +391,7 @@ static size_t st_decompress(void *arg)
 	BROTLIMT_Buffer Out;
 	BROTLIMT_Buffer *out = &Out;
 	BROTLIMT_Buffer *in = &w->in;
+	void *org_inbuf;
 	BrotliDecoderState *state;
 	const uint8_t* next_in;
 	uint8_t* next_out;
@@ -397,23 +400,29 @@ static size_t st_decompress(void *arg)
 
 	/* allocate space for input buffer */
 	in->allocated = in->size = ctx->inputsize;
-	in->buf = malloc(in->size);
-	if (!in->buf)
+	org_inbuf = malloc(in->size + 16); // need to be aligned because of possible HW AES encryption
+	if (!org_inbuf)
 		return MT_ERROR(memory_allocation);
+	// align buffer:
+	in->buf = org_inbuf;
+	if ((uintptr_t)org_inbuf % 16)
+		in->buf = (void*)((uintptr_t)org_inbuf + 16 - ((uintptr_t)org_inbuf % 16));
 	next_in = in->buf;
 
 	/* allocate space for output buffer */
 	out->allocated = out->size = ctx->inputsize * 4;
 	out->buf = malloc(out->size);
 	if (!out->buf) {
-		free(in->buf);
+		free(org_inbuf);
 		return MT_ERROR(memory_allocation);
 	}
+	out->final = 0;
+	out->max_rem_part = 0;
 	next_out = out->buf;
 
 	state = BrotliDecoderCreateInstance(NULL, NULL, NULL);
 	if (!state) {
-		free(in->buf);
+		free(org_inbuf);
 		free(out->buf);
 	  return MT_ERROR(memory_allocation);
 	}
@@ -458,7 +467,7 @@ static size_t st_decompress(void *arg)
 	}
 
  done:
-		free(in->buf);
+		free(org_inbuf);
 		free(out->buf);
 		BrotliDecoderDestroyInstance(state);
 		return retval;
