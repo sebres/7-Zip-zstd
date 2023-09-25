@@ -146,7 +146,6 @@ HRESULT CExtractCallbackImp::Open_CryptoGetTextPassword(BSTR *password)
   return CryptoGetTextPassword(password);
 }
 
-/*
 HRESULT CExtractCallbackImp::Open_GetPasswordIfAny(bool &passwordIsDefined, UString &password)
 {
   passwordIsDefined = PasswordIsDefined;
@@ -154,6 +153,7 @@ HRESULT CExtractCallbackImp::Open_GetPasswordIfAny(bool &passwordIsDefined, UStr
   return S_OK;
 }
 
+/*
 bool CExtractCallbackImp::Open_WasPasswordAsked()
 {
   return PasswordWasAsked;
@@ -679,6 +679,13 @@ STDMETHODIMP CExtractCallbackImp::CryptoGetTextPassword(BSTR *password)
     #endif
   }
   return StringToBstr(Password, password);
+}
+
+STDMETHODIMP CExtractCallbackImp::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+{
+  passwordIsDefined = PasswordIsDefined;
+  password = Password;
+  return S_OK;
 }
 
 #endif

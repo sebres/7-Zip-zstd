@@ -202,6 +202,15 @@ HRESULT CUpdateCallbackAgent::CryptoGetTextPassword(BSTR *password)
   return getTextPassword->CryptoGetTextPassword(password);
 }
 
+HRESULT CUpdateCallbackAgent::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+{
+  CMyComPtr<ICryptoGetTextPassword> getTextPassword;
+  Callback.QueryInterface(IID_ICryptoGetTextPassword, &getTextPassword);
+  if (!getTextPassword)
+    return E_NOTIMPL;
+  return getTextPassword->CryptoGetPasswordIfAny(passwordIsDefined, password);
+}
+
 HRESULT CUpdateCallbackAgent::ShowDeleteFile(const wchar_t *name, bool /* isDir */)
 {
   return Callback->DeleteOperation(name);
