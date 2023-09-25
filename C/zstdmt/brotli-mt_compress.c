@@ -244,6 +244,8 @@ static void *pt_compress(void *arg)
 			wl->out.size =
 			    BrotliEncoderMaxCompressedSize(ctx->inputsize) + 16;
 			wl->out.buf = malloc(wl->out.size);
+			wl->out.final = 0;
+			wl->out.max_rem_part = 0;
 			if (!wl->out.buf) {
 				pthread_mutex_unlock(&ctx->write_mutex);
 				return (void *)MT_ERROR(memory_allocation);
@@ -337,6 +339,7 @@ static size_t st_compress(void *arg)
 {
 	BROTLIMT_CCtx *ctx = (BROTLIMT_CCtx *) arg;
 	BrotliEncoderOperation brop = BROTLI_OPERATION_PROCESS;
+	void *org_outbuf;
 	BROTLIMT_Buffer Out;
 	BROTLIMT_Buffer *out = &Out;
 	BROTLIMT_Buffer In;
@@ -357,17 +360,23 @@ static size_t st_compress(void *arg)
 
 	/* allocate space for output buffer */
 	out->allocated = out->size = ctx->inputsize / 4;
-	out->buf = malloc(out->size);
-	if (!out->buf) {
+	org_outbuf = malloc(out->size+16+16); // need to be aligned because of possible HW AES encryption, +16 = +AES_BLOCK_SIZE for PKCS#7 padding 16 * \x16
+	if (!org_outbuf) {
 		free(in->buf);
 		return MT_ERROR(memory_allocation);
 	}
+	// align buffer:
+	out->buf = org_outbuf;
+	if ((uintptr_t)org_outbuf % 16)
+		out->buf = (void *)((uintptr_t)org_outbuf + 16 - ((uintptr_t)org_outbuf % 16));
+	out->final = 0;
+	out->max_rem_part = 1024; // MAX_REM_PART_SIZE
 	next_out = out->buf;
 
 	state = BrotliEncoderCreateInstance(NULL, NULL, NULL);
 	if (!state) {
 		free(in->buf);
-		free(out->buf);
+		free(org_outbuf);
 		return MT_ERROR(memory_allocation);
 	}
 
@@ -383,7 +392,7 @@ static size_t st_compress(void *arg)
 	  /* 0, or not specified by user; could be chosen by compressor. */
 	  uint32_t lgwin = 24 /* DEFAULT_LGWIN */;
 	  /* Use file size to limit lgwin. */
-	  if (ctx->unpackSize >= 0) {
+	  if (ctx->unpackSize >= 0 && ctx->unpackSize != (uint64_t)(int64_t)-1) {
 	    lgwin = BROTLI_MIN_WINDOW_BITS;
 	    while (BROTLI_MAX_BACKWARD_LIMIT(lgwin) <
 	           (uint64_t)ctx->unpackSize) {
@@ -393,7 +402,7 @@ static size_t st_compress(void *arg)
 	  }
 	  BrotliEncoderSetParameter(state, BROTLI_PARAM_LGWIN, lgwin);
 	}
-	if (ctx->unpackSize > 0) {
+	if (ctx->unpackSize > 0 && ctx->unpackSize != (uint64_t)(int64_t)-1) {
 		uint32_t size_hint = ctx->unpackSize < (1 << 30) ?
 	    (uint32_t)ctx->unpackSize : (1u << 30);
 		BrotliEncoderSetParameter(state, BROTLI_PARAM_SIZE_HINT, size_hint);
@@ -424,11 +433,14 @@ static size_t st_compress(void *arg)
 				retval = mt_error(rv);
 				goto done;
 			}
-			next_out = out->buf;
-			out->size = out->allocated;
+			// shift next_out and size, considering remaining part (stored in out->size)
+			next_out = (uint8_t *)out->buf + out->size;
+			out->size = out->allocated - out->size;
 		}
 		if (BrotliEncoderIsFinished(state)) {
 			out->size = next_out - (uint8_t*)out->buf;
+			out->final = 1;
+			out->max_rem_part = 0;
 			rv = ctx->fn_write(ctx->arg_write, out);
 			if (rv != 0) {
 				retval = mt_error(rv);
@@ -440,7 +452,7 @@ static size_t st_compress(void *arg)
 
  done:
 		free(in->buf);
-		free(out->buf);
+		free(org_outbuf);
 		BrotliEncoderDestroyInstance(state);
 		return retval;
 }

@@ -957,6 +957,13 @@ STDMETHODIMP CArchiveUpdateCallback::CryptoGetTextPassword(BSTR *password)
   COM_TRY_END
 }
 
+STDMETHODIMP CArchiveUpdateCallback::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+{
+  COM_TRY_BEGIN
+  return Callback->CryptoGetPasswordIfAny(passwordIsDefined, password);
+  COM_TRY_END
+}
+
 HRESULT CArchiveUpdateCallback::InFileStream_On_Error(UINT_PTR val, DWORD error)
 {
   #ifdef _WIN32 // FIX IT !!!

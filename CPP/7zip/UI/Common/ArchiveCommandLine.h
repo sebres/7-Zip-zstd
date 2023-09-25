@@ -77,7 +77,7 @@ struct CArcCmdLineOptions
 
   #ifndef _NO_CRYPTO
   bool PasswordEnabled;
-  UString Password;
+  UString Password; // Wipe
   #endif
 
   UStringVector HashMethods;
@@ -146,6 +146,10 @@ struct CArcCmdLineOptions
       LogLevel(0)
   {
   };
+
+  #ifndef _NO_CRYPTO
+  ~CArcCmdLineOptions() { Password.Wipe_and_Empty(); }
+  #endif
 };
 
 class CArcCmdLineParser

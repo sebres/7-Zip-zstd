@@ -46,6 +46,7 @@ public:
   STDMETHOD(SetRatioInfo)(const UInt64 *inSize, const UInt64 *outSize);
 
   STDMETHOD(CryptoGetTextPassword)(BSTR *password);
+  STDMETHOD(CryptoGetPasswordIfAny)(bool& passwordIsDefined, UString& password);
   STDMETHOD(CryptoGetTextPassword2)(Int32 *passwordIsDefined, BSTR *password);
 };
 

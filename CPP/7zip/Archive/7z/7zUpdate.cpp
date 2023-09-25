@@ -1559,11 +1559,19 @@ public:
 
   MY_UNKNOWN_IMP
   STDMETHOD(CryptoGetTextPassword)(BSTR *password);
+  STDMETHOD(CryptoGetPasswordIfAny)(bool& passwordIsDefined, UString& password);
 };
 
 STDMETHODIMP CCryptoGetTextPassword::CryptoGetTextPassword(BSTR *password)
 {
   return StringToBstr(Password, password);
+}
+
+STDMETHODIMP CCryptoGetTextPassword::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+{
+  passwordIsDefined = !Password.Len();
+  password = Password;
+  return S_OK;
 }
 
 #endif

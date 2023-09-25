@@ -7,6 +7,7 @@
 
 #include "../../Common/ComTry.h"
 #include "../../Common/MyBuffer2.h"
+#include "../../Common/MyString.h"
 
 #ifndef _7ZIP_ST
 #include "../../Windows/Synchronization.h"
@@ -198,6 +199,10 @@ STDMETHODIMP CEncoder::ResetSalt()
 
 STDMETHODIMP CEncoder::ResetInitVector()
 {
+  // if set with key:
+  if (!_key.NumCyclesPower && _ivSize) {
+    return S_OK;
+  }
   for (unsigned i = 0; i < sizeof(_iv); i++)
     _iv[i] = 0;
   _ivSize = 16;
@@ -209,6 +214,13 @@ STDMETHODIMP CEncoder::WriteCoderProperties(ISequentialOutStream *outStream)
 {
   Byte props[2 + sizeof(_key.Salt) + sizeof(_iv)];
   unsigned propsSize = 1;
+
+  /* don't write iv/salt if provided key together with iv */
+  if (!_key.NumCyclesPower && _key.Password.Size() >= (32*2+16*2+1)*2)
+  {
+    props[0] = (Byte)_key.NumCyclesPower /* | 0|0 */;
+    return WriteStream(outStream, props, propsSize);
+  }
 
   props[0] = (Byte)(_key.NumCyclesPower
       | (_key.SaltSize == 0 ? 0 : (1 << 7))
@@ -285,9 +297,24 @@ STDMETHODIMP CDecoder::SetDecoderProperties2(const Byte *data, UInt32 size)
 STDMETHODIMP CBaseCoder::CryptoSetPassword(const Byte *data, UInt32 size)
 {
   COM_TRY_BEGIN
-  
+
   _key.Password.Wipe();
   _key.Password.CopyFrom(data, (size_t)size);
+
+  // if starts with artificial mark (PasswordIsKey) - data+1 points to HEX of key(s)
+  if (size >= (32*2+1)*2 && *(wchar_t*)data == PWD_IS_HEX_KEY_MARK) {
+    UString_Wipe pwdBuf((wchar_t*)data, size/2);
+    unsigned keyLen = pwdBuf.HexKeyToBytes(1);
+    if (keyLen != kKeySize && keyLen != kKeySize+sizeof(_iv)) {
+      return E_INVALIDARG;
+    }
+    _key.NumCyclesPower = 0; /* in-place key supplied from args */
+    memcpy(_key.Key, (Byte*)pwdBuf.GetBuf(), kKeySize);
+    if (keyLen >= kKeySize+sizeof(_iv)) {
+      memcpy(_iv, ((Byte*)pwdBuf.GetBuf())+kKeySize, sizeof(_iv));
+      _ivSize = sizeof(_iv);
+    }
+  }
   return S_OK;
   
   COM_TRY_END
@@ -297,7 +324,10 @@ STDMETHODIMP CBaseCoder::Init()
 {
   COM_TRY_BEGIN
   
-  PrepareKey();
+  if (_key.NumCyclesPower)
+    PrepareKey();
+  //printf("***** key:%.*s\n", (int)kKeySize, (char *)_key.Key);
+  //printf("***** iv :%.*s\n", (int)sizeof(_iv),(char *)_iv);
   CMyComPtr<ICryptoProperties> cp;
   RINOK(_aesFilter.QueryInterface(IID_ICryptoProperties, &cp));
   if (!cp)

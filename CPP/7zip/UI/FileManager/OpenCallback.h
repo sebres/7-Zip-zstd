@@ -52,6 +52,7 @@ public:
 
   // ICryptoGetTextPassword
   STDMETHOD(CryptoGetTextPassword)(BSTR *password);
+  STDMETHOD(CryptoGetPasswordIfAny)(bool& passwordIsDefined, UString& password);
 
   STDMETHOD(SetSubArchiveName(const wchar_t *name))
   {

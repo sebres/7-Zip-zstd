@@ -155,6 +155,7 @@ public:
 
   // ICryptoGetTextPassword
   STDMETHOD(CryptoGetTextPassword)(BSTR *password);
+  STDMETHOD(CryptoGetPasswordIfAny)(bool& passwordIsDefined, UString& password);
 
   COpenArchiveCallback(): _subArchiveMode(false) {}
   
@@ -317,6 +318,13 @@ STDMETHODIMP COpenArchiveCallback::CryptoGetTextPassword(BSTR *password)
     PasswordIsDefined = true;
   }
   return StringToBstr(Password, password);
+}
+
+STDMETHODIMP COpenArchiveCallback::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+{
+  passwordIsDefined = PasswordIsDefined;
+  password = Password;
+  return S_OK;
 }
 
 /*

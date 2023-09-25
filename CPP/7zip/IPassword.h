@@ -5,6 +5,7 @@
 
 #include "../Common/MyTypes.h"
 #include "../Common/MyUnknown.h"
+#include "../Common/MyString.h"
 
 #include "IDecl.h"
 
@@ -23,6 +24,7 @@ out: The callee rewrites BSTR variable (*password) with new allocated string poi
 PASSWORD_INTERFACE(ICryptoGetTextPassword, 0x10)
 {
   STDMETHOD(CryptoGetTextPassword)(BSTR *password) PURE;
+  STDMETHOD(CryptoGetPasswordIfAny)(bool& passwordIsDefined, UString& password) PURE;
 };
 
 

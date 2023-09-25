@@ -255,6 +255,7 @@ COMPRESS_OBJS = \
 CRYPTO_OBJS = \
   $O\7zAes.obj \
   $O\7zAesRegister.obj \
+  $O\AesStream.obj \
   $O\HmacSha1.obj \
   $O\HmacSha256.obj \
   $O\MyAes.obj \

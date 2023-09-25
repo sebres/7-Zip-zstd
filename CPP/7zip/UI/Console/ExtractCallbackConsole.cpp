@@ -529,6 +529,14 @@ STDMETHODIMP CExtractCallbackConsole::CryptoGetTextPassword(BSTR *password)
   COM_TRY_END
 }
 
+STDMETHODIMP CExtractCallbackConsole::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+{
+  COM_TRY_BEGIN
+  MT_LOCK
+  return Open_GetPasswordIfAny(passwordIsDefined, password);
+  COM_TRY_END
+}
+
 #endif
 
 HRESULT CExtractCallbackConsole::BeforeOpen(const wchar_t *name, bool testMode)

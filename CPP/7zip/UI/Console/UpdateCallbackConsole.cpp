@@ -748,6 +748,29 @@ HRESULT CUpdateCallbackConsole::CryptoGetTextPassword(BSTR *password)
   COM_TRY_END
 }
 
+HRESULT CUpdateCallbackConsole::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+{
+  COM_TRY_BEGIN
+  
+  passwordIsDefined = false;
+
+  #ifdef _NO_CRYPTO
+
+  return E_NOTIMPL;
+  
+  #else
+  
+  passwordIsDefined = PasswordIsDefined;
+  if (PasswordIsDefined)
+  {
+    password = Password;
+  }
+  return S_OK;
+  
+  #endif
+  COM_TRY_END
+}
+
 HRESULT CUpdateCallbackConsole::ShowDeleteFile(const wchar_t *name, bool isDir)
 {
   if (StdOutMode)

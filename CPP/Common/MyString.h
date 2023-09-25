@@ -581,6 +581,7 @@ public:
   explicit UString(const char *s);
   explicit UString(const AString &s);
   UString(const wchar_t *s);
+  UString(const wchar_t *s, unsigned len);
   UString(const UString &s);
   ~UString() { MY_STRING_DELETE(_chars); }
 
@@ -733,6 +734,11 @@ public:
       _chars[index] = 0;
     }
   }
+
+  /* non-printable char as artifical mark signaling that password is a key */
+  #define PWD_IS_HEX_KEY_MARK L'\u2061'
+
+  unsigned HexKeyToBytes(uint8_t phase);
   
   void Wipe_and_Empty()
   {
@@ -750,6 +756,7 @@ class UString_Wipe: public UString
   CLASS_NO_COPY(UString_Wipe)
 public:
   UString_Wipe(): UString() {}
+  UString_Wipe(const wchar_t *s, unsigned len): UString(s, len) {}
   // UString_Wipe(const UString &s): UString(s) {}
   // UString_Wipe &operator=(const UString &s) { UString::operator=(s); return *this; }
   // UString_Wipe &operator=(const wchar_t *s) { UString::operator=(s); return *this; }

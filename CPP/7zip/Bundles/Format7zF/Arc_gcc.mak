@@ -288,6 +288,7 @@ endif
 CRYPTO_OBJS = \
   $O/7zAes.o \
   $O/7zAesRegister.o \
+  $O/AesStream.o \
   $O/HmacSha1.o \
   $O/HmacSha256.o \
   $O/MyAes.o \

@@ -1177,6 +1177,7 @@ public:
   INTERFACE_IArchiveOpenVolumeCallback(;)
   #ifndef _NO_CRYPTO
   STDMETHOD(CryptoGetTextPassword)(BSTR *password);
+  STDMETHOD(CryptoGetPasswordIfAny)(bool& passwordIsDefined, UString& password);
   #endif
 };
 
@@ -1186,6 +1187,14 @@ STDMETHODIMP CArchiveOpenCallback_Offset::CryptoGetTextPassword(BSTR *password)
   COM_TRY_BEGIN
   if (GetTextPassword)
     return GetTextPassword->CryptoGetTextPassword(password);
+  return E_NOTIMPL;
+  COM_TRY_END
+}
+STDMETHODIMP CArchiveOpenCallback_Offset::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+{
+  COM_TRY_BEGIN
+  if (GetTextPassword)
+    return GetTextPassword->CryptoGetPasswordIfAny(passwordIsDefined, password);
   return E_NOTIMPL;
   COM_TRY_END
 }

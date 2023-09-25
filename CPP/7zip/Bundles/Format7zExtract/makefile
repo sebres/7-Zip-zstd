@@ -86,6 +86,7 @@ COMPRESS_OBJS = \
 CRYPTO_OBJS = \
   $O\7zAes.obj \
   $O\7zAesRegister.obj \
+  $O\AesStream.obj \
   $O\MyAes.obj \
   $O\MyAesReg.obj \
 

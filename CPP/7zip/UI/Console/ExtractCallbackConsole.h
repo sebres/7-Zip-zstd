@@ -132,6 +132,7 @@ public:
   #ifndef _NO_CRYPTO
 
   STDMETHOD(CryptoGetTextPassword)(BSTR *password);
+  STDMETHOD(CryptoGetPasswordIfAny)(bool& passwordIsDefined, UString& password);
 
   #endif
   

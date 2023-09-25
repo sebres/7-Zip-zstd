@@ -8,7 +8,7 @@ int BrotliRead(void *arg, BROTLIMT_Buffer * in)
   struct BrotliStream *x = (struct BrotliStream*)arg;
   size_t size = in->size;
 
-  HRESULT res = ReadStream(x->inStream, in->buf, &size);
+  HRESULT res = ReadStreamGreedy(x->inStream, in->buf, &size);
 
   /* catch errors */
   switch (res) {
@@ -33,8 +33,10 @@ int BrotliWrite(void *arg, BROTLIMT_Buffer * out)
   struct BrotliStream *x = (struct BrotliStream*)arg;
   UInt32 todo = (UInt32)out->size;
   UInt32 done = 0;
+  if (out->final)
+    x->outStream->Finalize = true;
 
-  while (todo != 0)
+  do
   {
     UInt32 block;
     HRESULT res = x->outStream->Write((char*)out->buf + done, todo, &block);
@@ -54,10 +56,18 @@ int BrotliWrite(void *arg, BROTLIMT_Buffer * out)
     if (res != S_OK)
       return -1;
 
-    if (block == 0)
+    if (block == 0 && todo != 0) {
       return -1;
+    }
     todo -= block;
+  } 
+  while (todo > out->max_rem_part);
+  
+  if (todo) {
+    memmove(out->buf, (Byte*)out->buf + done, todo);
   }
+  if (out->max_rem_part)
+    out->size = todo;
 
   *x->processedOut += done;
   /* we need no lock here, cause only one thread can write... */

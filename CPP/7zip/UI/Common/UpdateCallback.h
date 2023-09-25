@@ -44,6 +44,7 @@ struct CArcToDoStat
   /* virtual HRESULT SetPassword(const UString &password) x; */ \
   virtual HRESULT CryptoGetTextPassword2(Int32 *passwordIsDefined, BSTR *password) x; \
   virtual HRESULT CryptoGetTextPassword(BSTR *password) x; \
+  virtual HRESULT CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password) x; \
   virtual HRESULT ShowDeleteFile(const wchar_t *name, bool isDir) x; \
 
   /*
@@ -122,6 +123,7 @@ public:
 
   STDMETHOD(CryptoGetTextPassword2)(Int32 *passwordIsDefined, BSTR *password);
   STDMETHOD(CryptoGetTextPassword)(BSTR *password);
+  STDMETHOD(CryptoGetPasswordIfAny)(bool& passwordIsDefined, UString& password);
 
   CRecordVector<UInt32> _openFiles_Indexes;
   FStringVector _openFiles_Paths;

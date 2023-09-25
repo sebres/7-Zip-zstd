@@ -127,3 +127,10 @@ STDMETHODIMP COpenArchiveCallback::CryptoGetTextPassword(BSTR *password)
   return StringToBstr(Password, password);
   COM_TRY_END
 }
+
+STDMETHODIMP COpenArchiveCallback::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+{
+  passwordIsDefined = PasswordIsDefined;
+  password = Password;
+  return S_OK;
+}

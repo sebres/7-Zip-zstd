@@ -30,7 +30,10 @@ CEncoder::CEncoder():
   _LdmHashLog(-1),
   _LdmMinMatch(-1),
   _LdmBucketSizeLog(-1),
-  _LdmHashRateLog(-1)
+  _LdmHashRateLog(-1),
+  dictIDFlag(-1),
+  checksumFlag(-1),
+  unpackSize(0)
 {
   _props.clear();
 }
@@ -40,7 +43,7 @@ CEncoder::~CEncoder()
   if (_ctx) {
     ZSTD_freeCCtx(_ctx);
     MyFree(_srcBuf);
-    MyFree(_dstBuf);
+    ISzAlloc_Free(&g_AlignedAlloc, _dstBuf);
   }
 }
 
@@ -237,7 +240,8 @@ STDMETHODIMP CEncoder::Code(ISequentialInStream *inStream,
     if (!_srcBuf)
       return E_OUTOFMEMORY;
 
-    _dstBuf = MyAlloc(_dstBufSize);
+    // aligned because of possible HW AES encryption, +16 = +AES_BLOCK_SIZE for PKCS#7 padding 16 * \x16
+    _dstBuf = ISzAlloc_Alloc(&g_AlignedAlloc, _dstBufSize+16);
     if (!_dstBuf)
       return E_OUTOFMEMORY;
 
@@ -252,6 +256,20 @@ STDMETHODIMP CEncoder::Code(ISequentialInStream *inStream,
     /* set the content size flag */
     err = ZSTD_CCtx_setParameter(_ctx, ZSTD_c_contentSizeFlag, 1);
     if (ZSTD_isError(err)) return E_INVALIDARG;
+
+    if (dictIDFlag != -1) {
+      err = ZSTD_CCtx_setParameter(_ctx, ZSTD_c_dictIDFlag, dictIDFlag);
+      if (ZSTD_isError(err)) return E_INVALIDARG;
+    }
+    if (checksumFlag != -1) {
+      err = ZSTD_CCtx_setParameter(_ctx, ZSTD_c_checksumFlag, checksumFlag);
+      if (ZSTD_isError(err)) return E_INVALIDARG;
+    }
+
+    if (unpackSize && unpackSize != (UInt64)(Int64)-1) { // size is known
+      err = ZSTD_CCtx_setParameter(_ctx, ZSTD_c_srcSizeHint, (int)(unpackSize <= INT_MAX ? unpackSize : INT_MAX));
+      if (ZSTD_isError(err)) return E_INVALIDARG;
+    }
 
     /* enable ldm for large windowlog values */
     if (_WindowLog > 27 && _Long == 0)
@@ -322,8 +340,17 @@ STDMETHODIMP CEncoder::Code(ISequentialInStream *inStream,
       err = ZSTD_CCtx_setParameter(_ctx, ZSTD_c_ldmHashRateLog, _LdmHashRateLog);
       if (ZSTD_isError(err)) return E_INVALIDARG;
     }
+
+    //err = ZSTD_CCtx_setParameter(_ctx, ZSTD_c_literalCompressionMode, (int)ZSTD_ps_auto);
+    //if (ZSTD_isError(err)) return E_INVALIDARG;
+
+    //err = ZSTD_CCtx_setParameter(_ctx, ZSTD_c_enableDedicatedDictSearch, 1);
+    //if (ZSTD_isError(err)) return E_INVALIDARG;
   }
 
+  outBuff.dst = _dstBuf;
+  outBuff.size = _dstBufSize; // buffer normally always larger than AES_BLOCK_SIZE, for possible padding of block if needed (if encryption in-place)
+  outBuff.pos = 0;
   for (;;) {
 
     /* read input */
@@ -331,26 +358,18 @@ STDMETHODIMP CEncoder::Code(ISequentialInStream *inStream,
     RINOK(ReadStream(inStream, _srcBuf, &srcSize));
 
     /* eof */
-    if (srcSize == 0)
+    inBuff.src = _srcBuf;
+    inBuff.size = srcSize;
+    inBuff.pos = 0;
+    if (srcSize == 0) {
+      inBuff.src = NULL;
       ZSTD_todo = ZSTD_e_end;
+    }
 
     /* compress data */
     _processedIn += srcSize;
 
     for (;;) {
-      outBuff.dst = _dstBuf;
-      outBuff.size = _dstBufSize;
-      outBuff.pos = 0;
-
-      if (ZSTD_todo == ZSTD_e_continue) {
-        inBuff.src = _srcBuf;
-        inBuff.size = srcSize;
-        inBuff.pos = 0;
-      } else {
-        inBuff.src = 0;
-        inBuff.size = srcSize;
-        inBuff.pos = 0;
-      }
 
       err = ZSTD_compressStream2(_ctx, &outBuff, &inBuff, ZSTD_todo);
       if (ZSTD_isError(err)) {
@@ -372,19 +391,27 @@ STDMETHODIMP CEncoder::Code(ISequentialInStream *inStream,
 
       /* write output */
       if (outBuff.pos) {
-        RINOK(WriteStream(outStream, _dstBuf, outBuff.pos));
+        size_t remPart;
+        RINOK(WriteStreamRemPart(outStream, _dstBuf, outBuff.pos, &remPart));
         _processedOut += outBuff.pos;
+        outBuff.pos = remPart;
       }
 
       if (progress)
         RINOK(progress->SetRatioInfo(&_processedIn, &_processedOut));
 
       /* done */
-      if (ZSTD_todo == ZSTD_e_end && err == 0)
+      if (ZSTD_todo == ZSTD_e_end && err == 0) {
+        outStream->Finalize = true; // should write to the end
+        size_t remPart;
+        RINOK(WriteStreamRemPart(outStream, _dstBuf, outBuff.pos, &remPart));
+        if (remPart)
+          return E_UNEXPECTED; // remPart must be 0
         return S_OK;
+      }
 
       /* need more input */
-      if (inBuff.pos == inBuff.size)
+      if (inBuff.pos == inBuff.size && inBuff.src)
         break;
     }
   }

@@ -165,4 +165,21 @@ STDMETHODIMP COpenCallbackImp::CryptoGetTextPassword(BSTR *password)
   return Callback->Open_CryptoGetTextPassword(password);
   COM_TRY_END
 }
+
+STDMETHODIMP COpenCallbackImp::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+{
+  COM_TRY_BEGIN
+  if (ReOpenCallback)
+  {
+    CMyComPtr<ICryptoGetTextPassword> getTextPassword;
+    ReOpenCallback.QueryInterface(IID_ICryptoGetTextPassword, &getTextPassword);
+    if (getTextPassword)
+      return getTextPassword->CryptoGetPasswordIfAny(passwordIsDefined, password);
+  }
+  if (!Callback)
+    return E_NOTIMPL;
+  PasswordWasAsked = true;
+  return Callback->Open_GetPasswordIfAny(passwordIsDefined, password);
+  COM_TRY_END
+}
 #endif

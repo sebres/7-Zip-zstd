@@ -6,6 +6,8 @@
 #include "../../Common/ComTry.h"
 #include "../../Common/Defs.h"
 
+#include "../IPassword.h"
+
 #include "../Common/ProgressUtils.h"
 #include "../Common/RegisterArc.h"
 #include "../Common/StreamUtils.h"
@@ -13,6 +15,10 @@
 #include "../Compress/ZstdDecoder.h"
 #include "../Compress/ZstdEncoder.h"
 #include "../Compress/CopyCoder.h"
+
+#ifndef _NO_CRYPTO
+#include "../Crypto/AesStream.h"
+#endif
 
 #include "Common/DummyOutStream.h"
 #include "Common/HandlerOut.h"
@@ -31,6 +37,10 @@ class CHandler:
 {
   CMyComPtr<IInStream> _stream;
   CMyComPtr<ISequentialInStream> _seqStream;
+  #ifndef _NO_CRYPTO
+  NCrypto::CAesInStream *_aesStream;
+  HRESULT SetAesStreamForKey(IUnknown *callback, ISequentialInStream *stream);
+  #endif
 
   bool _isArc;
   bool _dataAfterEnd;
@@ -57,7 +67,21 @@ public:
   STDMETHOD(OpenSeq)(ISequentialInStream *stream);
   STDMETHOD(SetProperties)(const wchar_t * const *names, const PROPVARIANT *values, UInt32 numProps);
 
-  CHandler() { }
+  CHandler():
+  #ifndef _NO_CRYPTO
+  _aesStream(NULL)
+  #endif
+  { }
+
+  ~CHandler() 
+  {
+    #ifndef _NO_CRYPTO
+    if (_aesStream) {
+      _aesStream = NULL;
+    }
+    #endif
+  }
+
 };
 
 static const Byte kProps[] =
@@ -132,19 +156,36 @@ API_FUNC_static_IsArc IsArc_zstd(const Byte *p, size_t size)
 }
 }
 
-STDMETHODIMP CHandler::Open(IInStream *stream, const UInt64 *, IArchiveOpenCallback *)
+STDMETHODIMP CHandler::Open(IInStream *stream, const UInt64 *, IArchiveOpenCallback *callback)
 {
   COM_TRY_BEGIN
   Close();
   {
     Byte buf[kSignatureCheckSize];
-    RINOK(ReadStream_FALSE(stream, buf, kSignatureCheckSize));
+    #ifndef _NO_CRYPTO
+    // acquire passord if set:
+    HRESULT res;
+    if (_aesStream == NULL) {
+      if ((res = SetAesStreamForKey(callback, stream)) != S_OK) {
+        return res;
+      }
+    }
+    // if encrypted:
+    if (_aesStream)
+    {
+      RINOK(_aesStream->ReadAhead(buf, kSignatureCheckSize, NULL)); // S_FALSE if not enough content
+    }
+    else
+    #endif
+    {
+      RINOK(ReadStream_FALSE(stream, buf, kSignatureCheckSize));
+      RINOK(stream->Seek(0, STREAM_SEEK_SET, NULL));
+    }
     if (IsArc_zstd(buf, kSignatureCheckSize) == k_IsArc_Res_NO)
       return S_FALSE;
     _isArc = true;
     _stream = stream;
     _seqStream = stream;
-    RINOK(_stream->Seek(0, STREAM_SEEK_SET, NULL));
   }
   return S_OK;
   COM_TRY_END
@@ -172,13 +213,52 @@ STDMETHODIMP CHandler::Close()
 
   _seqStream.Release();
   _stream.Release();
+
+  #ifndef _NO_CRYPTO
+  if (_aesStream) {
+    delete _aesStream;
+    _aesStream = NULL;
+  }
+  #endif
   return S_OK;
 }
+
+#ifndef _NO_CRYPTO
+HRESULT CHandler::SetAesStreamForKey(IUnknown * callback, ISequentialInStream *stream)
+{
+  HRESULT res = S_OK;
+  CMyComPtr<ICryptoGetTextPassword> getTextPassword;
+  callback->QueryInterface(IID_ICryptoGetTextPassword, (void **)&getTextPassword);
+  if (getTextPassword)
+  {
+    UString_Wipe password;
+    bool passwordIsDefined;
+    RINOK(getTextPassword->CryptoGetPasswordIfAny(passwordIsDefined, password));
+    if (passwordIsDefined) {
+      _aesStream = new NCrypto::CAesInStream();
+      res = _aesStream->Init(stream, password);
+      password.Wipe_and_Empty();
+    }
+  }
+
+  return res;
+};
+#endif
 
 STDMETHODIMP CHandler::Extract(const UInt32 *indices, UInt32 numItems,
     Int32 testMode, IArchiveExtractCallback *extractCallback)
 {
   COM_TRY_BEGIN
+
+  #ifndef _NO_CRYPTO
+  HRESULT res;
+  if (_aesStream == NULL) {
+    if ((res = SetAesStreamForKey(extractCallback, _seqStream)) != S_OK) {
+      return res;
+    }
+  }
+  #endif
+
   if (numItems == 0)
     return S_OK;
   if (numItems != (UInt32)(Int32)-1 && (numItems != 1 || indices[0] != 0))
@@ -203,7 +283,12 @@ STDMETHODIMP CHandler::Extract(const UInt32 *indices, UInt32 numItems,
 
   NCompress::NZSTD::CDecoder *decoderSpec = new NCompress::NZSTD::CDecoder;
   CMyComPtr<ICompressCoder> decoder = decoderSpec;
-  decoderSpec->SetInStream(_seqStream);
+  decoderSpec->SetInStream(
+    #ifndef _NO_CRYPTO
+    _aesStream ? _aesStream :
+    #endif
+    _seqStream
+  );
 
   CDummyOutStream *outStreamSpec = new CDummyOutStream;
   CMyComPtr<ISequentialOutStream> outStream(outStreamSpec);
@@ -250,6 +335,9 @@ STDMETHODIMP CHandler::Extract(const UInt32 *indices, UInt32 numItems,
       break;
   }
 
+#ifndef _NO_CRYPTO
+  _aesStream = NULL; // gets released below
+#endif
   decoderSpec->ReleaseInStream();
   outStream.Release();
 
@@ -279,6 +367,12 @@ static HRESULT UpdateArchive(
     const CProps &props,
     IArchiveUpdateCallback *updateCallback)
 {
+  HRESULT res;
+  #ifndef _NO_CRYPTO
+  NCrypto::CAesOutStream *aesStream = NULL;
+  CMyComPtr<ICryptoGetTextPassword> getPassword;
+  #endif
+
   RINOK(updateCallback->SetTotal(unpackSize));
   CMyComPtr<ISequentialInStream> fileInStream;
   RINOK(updateCallback->GetStream(0, &fileInStream));
@@ -286,10 +380,44 @@ static HRESULT UpdateArchive(
   CMyComPtr<ICompressProgressInfo> localProgress = localProgressSpec;
   localProgressSpec->Init(updateCallback, true);
   NCompress::NZSTD::CEncoder *encoderSpec = new NCompress::NZSTD::CEncoder;
+
+  // by zstd archive type store dictID and checksum (similar to zstd client)
+  encoderSpec->dictIDFlag = 1;
+  encoderSpec->checksumFlag = 1;
+  encoderSpec->unpackSize = unpackSize;
   CMyComPtr<ICompressCoder> encoder = encoderSpec;
-  RINOK(props.SetCoderProps(encoderSpec, NULL));
-  RINOK(encoder->Code(fileInStream, outStream, NULL, NULL, localProgress));
-  return updateCallback->SetOperationResult(NArchive::NUpdate::NOperationResult::kOK);
+  res = props.SetCoderProps(encoderSpec, NULL);
+  if (res != S_OK) goto done;
+
+  // encryption:
+  #ifndef _NO_CRYPTO
+  updateCallback->QueryInterface(IID_ICryptoGetTextPassword, (void **)&getPassword);
+  if (getPassword)
+  {
+    UString_Wipe password;
+    bool passwordIsDefined;
+    RINOK(getPassword->CryptoGetPasswordIfAny(passwordIsDefined, password));
+    if (passwordIsDefined) {
+      aesStream = new NCrypto::CAesOutStream();
+      res = aesStream->Init(outStream, password);
+      password.Wipe_and_Empty();
+      if (res != S_OK) goto done;
+      outStream = aesStream;
+    }
+  }
+  #endif
+
+  res = encoder->Code(fileInStream, outStream, NULL, NULL, localProgress);
+  if (res != S_OK) goto done;
+  res = updateCallback->SetOperationResult(NArchive::NUpdate::NOperationResult::kOK);
+
+done:
+  #ifndef _NO_CRYPTO
+  if (aesStream) {
+    delete aesStream;
+  }
+  #endif
+  return res;
 }
 
 STDMETHODIMP CHandler::GetFileTimeType(UInt32 *type)

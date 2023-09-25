@@ -66,6 +66,8 @@ typedef struct {
 	void *buf;		/* ptr to data */
 	size_t size;		/* current filled in buf */
 	size_t allocated;	/* length of buf */
+	int   final;    /* signal end of processing (e. g. for encryption padding) */
+	uint32_t max_rem_part;
 } BROTLIMT_Buffer;
 
 /**
