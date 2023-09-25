@@ -378,6 +378,9 @@ STDMETHODIMP CHandler::Extract(const UInt32 *indices, UInt32 numItems,
           #endif
           );
 
+      if (result == k_My_HRESULT_WritingDone)
+        return S_OK;
+
       if (result == S_FALSE || result == E_NOTIMPL || dataAfterEnd_Error)
       {
         bool wasFinished = folderOutStream->WasWritingFinished();

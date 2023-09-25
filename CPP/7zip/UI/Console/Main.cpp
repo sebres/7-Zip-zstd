@@ -1542,6 +1542,9 @@ static int MainV(
 
       ecs->Init(g_StdStream, g_ErrStream, percentsStream);
       ecs->MultiArcMode = (ArchivePathsSorted.Size() > 1);
+      
+      ecs->ExtrOffset = options.ExtrOffset;
+      ecs->ExtrLength = options.ExtrLength;
 
       ecs->LogLevel = options.LogLevel;
       ecs->PercentsNameLevel = percentsNameLevel;

@@ -56,6 +56,84 @@ static const char * const kCantCreateSymLink = "Cannot create symbolic link";
 
 #ifndef _SFX
 
+// -------------------------------------------------------------------------
+// COutStreamWithOffsLen -- output stream extracting by offset/length pair
+//
+// Used to direct access to extracted data by offset and extracting length bytes only.
+// -------------------------------------------------------------------------
+
+class COutStreamWithOffsLen :
+  public IOutStream,
+  public CMyUnknownImp
+{
+  ISequentialOutStream *_stream;
+  UInt64 _offset;
+  UInt64 _length;
+public:
+  COutStreamWithOffsLen(ISequentialOutStream* stream, UInt64 offset, UInt64 length):
+    _stream(stream),
+    _offset(offset),
+    _length(length)
+  {}
+
+  ~COutStreamWithOffsLen()
+  {
+    _stream->Release();
+  }
+
+  MY_UNKNOWN_IMP
+
+  STDMETHOD(Write)(const void* data, UInt32 size, UInt32* processedSize);
+  STDMETHOD(Seek)(Int64 offset, UInt32 seekOrigin, UInt64* newPosition);
+  STDMETHOD(SetSize)(UInt64 newSize);
+};
+
+STDMETHODIMP COutStreamWithOffsLen::Write(const void* data, UInt32 size, UInt32* processedSize)
+{
+  HRESULT res = S_OK;
+  UInt32 writSize = 0, s;
+  if (_offset) {
+    if (_offset > size) {
+      _offset -= size;
+      writSize = size;
+      goto done;
+    }
+    size -= (UInt32)_offset;
+    data = (Byte*)data + _offset;
+    writSize = (UInt32)_offset;
+    _offset = 0;
+  }
+  if (_length != UINT64_MAX && size > _length) {
+    size = (UInt32)_length;
+  }
+  if (size) {
+    res = _stream->Write(data, size, &s);
+    if (_length != UINT64_MAX) {
+      if (s <= _length) {
+        _length -= s;
+      } else {
+        res = E_UNEXPECTED;
+      }
+    }
+    writSize += s;
+  }
+done:
+  if (processedSize) *processedSize = writSize;
+  return res == S_OK ? (_length ? S_OK : k_My_HRESULT_WritingDone) : res;
+}
+
+STDMETHODIMP COutStreamWithOffsLen::Seek(Int64, UInt32, UInt64*)
+{
+  return E_NOTIMPL;
+}
+
+STDMETHODIMP COutStreamWithOffsLen::SetSize(UInt64)
+{
+  return E_NOTIMPL;
+}
+
+// -------------------------------------------------------------------------
+
 STDMETHODIMP COutStreamWithHash::Write(const void *data, UInt32 size, UInt32 *processedSize)
 {
   HRESULT result = S_OK;
@@ -270,7 +348,9 @@ CArchiveExtractCallback::CArchiveExtractCallback():
     Write_CTime(true),
     Write_ATime(true),
     Write_MTime(true),
-    _multiArchives(false)
+    _multiArchives(false),
+    ExtrOffset(0),
+    ExtrLength(UINT64_MAX)
 {
   LocalProgressSpec = new CLocalProgress();
   _localProgress = LocalProgressSpec;
@@ -1806,6 +1886,12 @@ STDMETHODIMP CArchiveExtractCallback::GetStream(UInt32 index, ISequentialOutStre
 
   if (outStreamLoc)
   {
+#ifndef _SFX
+    if (ExtrOffset != 0 || ExtrLength != UINT64_MAX) {
+      outStreamLoc = new COutStreamWithOffsLen(outStreamLoc.Detach(), ExtrOffset, ExtrLength);
+    }
+#endif
+      
     /*
     #ifdef SUPPORT_LINKS
     if (!_CopyFile_Path.IsEmpty())
@@ -1818,6 +1904,7 @@ STDMETHODIMP CArchiveExtractCallback::GetStream(UInt32 index, ISequentialOutStre
       return S_OK;
     #endif
     */
+
     *outStream = outStreamLoc.Detach();
   }
   

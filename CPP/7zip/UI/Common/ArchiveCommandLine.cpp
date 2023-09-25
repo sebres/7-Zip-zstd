@@ -178,6 +178,8 @@ enum Enum
   , kPassword
   , kEncKey
   #endif
+
+  , kExtrOffsLen
 };
 
 }
@@ -327,6 +329,8 @@ static const CSwitchForm kSwitchForms[] =
   , { "p", SWFRM_STRING }
   , { "ekey", SWFRM_STRING }
   #endif
+
+  , { "eoffs", SWFRM_STRING }
 };
 
 static const char * const kUniversalWildcard = "*";
@@ -1377,6 +1381,28 @@ void CArcCmdLineParser::Parse2(CArcCmdLineOptions &options)
     }
   }
   #endif
+
+  if (parser[NKey::kExtrOffsLen].ThereIs) {
+    if (!isExtractGroupCommand) {
+      throw CArcCmdLineException("Offset/length only allowed for partial extraction");
+    }
+    const UString &s = parser[NKey::kExtrOffsLen].PostStrings[0];
+    const wchar_t *offs = s.Ptr();
+    if (*offs == L'=') offs++;
+    if (*offs != L':') {
+      options.ExtrOffset = ConvertStringToUInt64(offs, &offs);
+      if (*offs != L':' && *offs != L'\0') {
+        throw CArcCmdLineException("Invalid offset value specified (must be UInt64?:UInt64?)");
+      }
+    }
+    if (*offs == L':') {
+      offs++;
+      options.ExtrLength = ConvertStringToUInt64(offs, &offs);
+      if (*offs != L'\0') {
+        throw CArcCmdLineException("Invalid length value specified (must be UInt64?:UInt64?)");
+      }
+    }
+  }
 
   options.ShowDialog = parser[NKey::kShowDialog].ThereIs;
 

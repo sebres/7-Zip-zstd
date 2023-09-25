@@ -35,29 +35,35 @@ int BrotliWrite(void *arg, BROTLIMT_Buffer * out)
   UInt32 done = 0;
   if (out->final)
     x->outStream->Finalize = true;
+  HRESULT res;
 
   do
   {
-    UInt32 block;
-    HRESULT res = x->outStream->Write((char*)out->buf + done, todo, &block);
-
-    /* catch errors */
-    switch (res) {
-    case E_ABORT:
-      return -2;
-    case E_OUTOFMEMORY:
-      return -3;
-    }
+    UInt32 block = 0;
+    res = x->outStream->Write((char*)out->buf + done, todo, &block);
 
     done += block;
-    if (res == k_My_HRESULT_WritingWasCut)
+
+    if (res != S_OK) {
+      /* catch errors */
+      switch (res) {
+      case E_ABORT:
+        res = -2;
+        break;
+      case E_OUTOFMEMORY:
+        res = -3;
+        break;
+      case k_My_HRESULT_WritingWasCut: // ???
+        res = S_OK;
+        break;
+      }
+      todo = 0; // don't move mem below (processing stopped)
       break;
-    /* some other error -> write_fail */
-    if (res != S_OK)
-      return -1;
+    }
 
     if (block == 0 && todo != 0) {
-      return -1;
+      res = -1;
+      break;
     }
     todo -= block;
   } 
@@ -74,7 +80,7 @@ int BrotliWrite(void *arg, BROTLIMT_Buffer * out)
   if (x->progress)
     x->progress->SetRatioInfo(x->processedIn, x->processedOut);
 
-  return 0;
+  return res;
 }
 
 namespace NCompress {
@@ -161,7 +167,9 @@ HRESULT CDecoder::CodeSpec(ISequentialInStream * inStream,
 
   /* 3) decompress */
   result = BROTLIMT_decompressDCtx(ctx, &rdwr);
-  if (BROTLIMT_isError(result)) {
+  if (result == k_My_HRESULT_WritingDone)
+      res = (HRESULT)result;
+  else if (BROTLIMT_isError(result)) {
     res = E_FAIL;
     if (result == (size_t)-BROTLIMT_error_canceled)
       res = E_ABORT;
