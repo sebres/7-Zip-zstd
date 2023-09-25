@@ -162,9 +162,9 @@ HRESULT CDecoder::CodeSpec(ISequentialInStream * inStream,
   /* 3) decompress */
   result = BROTLIMT_decompressDCtx(ctx, &rdwr);
   if (BROTLIMT_isError(result)) {
+    res = E_FAIL;
     if (result == (size_t)-BROTLIMT_error_canceled)
-      return E_ABORT;
-    return E_FAIL;
+      res = E_ABORT;
   }
 
   /* 4) free resources */

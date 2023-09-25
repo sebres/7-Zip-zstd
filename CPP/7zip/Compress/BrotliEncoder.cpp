@@ -141,12 +141,12 @@ STDMETHODIMP CEncoder::Code(ISequentialInStream *inStream,
   if (!_ctx)
     return S_FALSE;
 
-  /* 4) compress */
+  /* 3) compress */
   result = BROTLIMT_compressCCtx(_ctx, &rdwr);
   if (BROTLIMT_isError(result)) {
+    res = E_FAIL;
     if (result == (size_t)-BROTLIMT_error_canceled)
-      return E_ABORT;
-    return E_FAIL;
+      res = E_ABORT;
   }
 
   return res;
