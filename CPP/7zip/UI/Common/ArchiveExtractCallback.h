@@ -443,6 +443,9 @@ public:
   STDMETHOD(CryptoGetTextPassword)(BSTR *password);
   STDMETHOD(CryptoGetPasswordIfAny)(bool& passwordIsDefined, UString& password);
 
+  UInt64 ExtrOffset;
+  UInt64 ExtrLength;
+
   CArchiveExtractCallback();
 
   void InitForMulti(bool multiArchives,

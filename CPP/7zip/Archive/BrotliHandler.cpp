@@ -271,8 +271,10 @@ STDMETHODIMP CHandler::Extract(const UInt32 *indices, UInt32 numItems,
     result = decoderSpec->CodeResume(outStream, &unpackedSize, progress);
     UInt64 streamSize = decoderSpec->GetInputProcessedSize();
 
-    if (result != S_FALSE && result != S_OK)
-      return result;
+    if (result != S_FALSE && result != S_OK) {
+      if (result == k_My_HRESULT_WritingDone) result = S_OK;
+      break;
+    }
 
     if (unpackedSize == 0)
       break;
@@ -284,11 +286,10 @@ STDMETHODIMP CHandler::Extract(const UInt32 *indices, UInt32 numItems,
       break;
     }
 
-    if (packSize > streamSize)
-      return E_FAIL;
-
-    if (result != S_OK)
+    if (packSize > streamSize) {
+      result = E_FAIL;
       break;
+    }
   }
 
 #ifndef _NO_CRYPTO

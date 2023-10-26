@@ -106,6 +106,9 @@ struct CArcCmdLineOptions
   UString ArcType;
   UStringVector ExcludedArcTypes;
   
+  UInt64 ExtrOffset;
+  UInt64 ExtrLength;
+
   unsigned Number_for_Out;
   unsigned Number_for_Errors;
   unsigned Number_for_Percents;
@@ -138,6 +141,9 @@ struct CArcCmdLineOptions
       ShowTime(false),
 
       ConsoleCodePage(-1),
+
+      ExtrOffset(0),
+      ExtrLength(UINT64_MAX),
 
       Number_for_Out(k_OutStream_stdout),
       Number_for_Errors(k_OutStream_stderr),

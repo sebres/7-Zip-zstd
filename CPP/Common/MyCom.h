@@ -303,5 +303,6 @@ STDMETHOD_(ULONG, Release)() { if (--__m_RefCount != 0) return __m_RefCount; \
   )
 
 const HRESULT k_My_HRESULT_WritingWasCut = 0x20000010;
+const HRESULT k_My_HRESULT_WritingDone = 0x20000011; /* partial extraction (length of -eoffs=$offs:$len reached) */
 
 #endif

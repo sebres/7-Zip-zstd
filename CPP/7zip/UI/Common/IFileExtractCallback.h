@@ -87,6 +87,13 @@ is implemented by
 struct IExtractCallbackUI: IFolderArchiveExtractCallback
 {
   INTERFACE_IExtractCallbackUI(PURE)
+
+  UInt64 ExtrOffset;
+  UInt64 ExtrLength;
+
+  IExtractCallbackUI() :
+      ExtrOffset(0),
+      ExtrLength(UINT64_MAX) {};
 };
 
 

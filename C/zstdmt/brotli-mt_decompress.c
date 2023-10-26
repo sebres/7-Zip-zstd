@@ -110,7 +110,7 @@ BROTLIMT_DCtx *BROTLIMT_createDCtx(int threads, int inputsize)
 	if (inputsize)
 		ctx->inputsize = inputsize;
 	else
-		ctx->inputsize = 1024 * 64;	/* 64K buffer */
+		ctx->inputsize = 1024 * 256; /* 256K buffer */
 
 	if (threads) {
 		pthread_mutex_init(&ctx->read_mutex, NULL);
@@ -152,6 +152,8 @@ static size_t mt_error(int rv)
 		return MT_ERROR(canceled);
 	case -3:
 		return MT_ERROR(memory_allocation);
+	case 0x20000011:// k_My_HRESULT_WritingDone
+	  return (size_t)rv; // partial extraction, length reached
 	}
 
 	/* XXX, some catch all other errors */
@@ -359,7 +361,7 @@ static void *pt_decompress(void *arg)
 		/* write result */
 		pthread_mutex_lock(&ctx->write_mutex);
 		result = pt_write(ctx, wl);
-		if (BROTLIMT_isError(result))
+		if (BROTLIMT_isError(result) || result == 0x20000011) // k_My_HRESULT_WritingDone
 			goto error_unlock;
 		pthread_mutex_unlock(&ctx->write_mutex);
 	}

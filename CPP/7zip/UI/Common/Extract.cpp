@@ -315,6 +315,9 @@ HRESULT Extract(
   CArchiveExtractCallback *ecs = new CArchiveExtractCallback;
   CMyComPtr<IArchiveExtractCallback> ec(ecs);
   
+  ecs->ExtrOffset = extractCallback->ExtrOffset;
+  ecs->ExtrLength = extractCallback->ExtrLength;
+  
   const bool multi = (numArcs > 1);
   
   ecs->InitForMulti(multi,
