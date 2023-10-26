@@ -447,7 +447,16 @@ static int StartInServerMode(UStringVector &commandStrings)
         // g_StdOut << "  cmd (" << commandStrings.Size() << "): " << commandStrings.Front() << " ... " << commandStrings.Back() << endl;
         if (!redirErr.IsEmpty()) {
           // g_StdOut << "  stderr > " << redirErr << endl;
-          redirErrF = _wfopen(redirErr, L"wt");
+          if (redirErr.IsPrefixedBy(L"&")) { // 2>&n
+            const wchar_t *p = redirErr;
+            DWORD nHandle = ConvertStringToUInt32(p+1, &p);
+            if (*p != L'\0') {
+              throw (UString("Integer expected by 2>&n"));
+            }
+            redirErrF = _wfdopen(nHandle, L"wt");
+          } else {
+            redirErrF = _wfopen(redirErr, L"wt");
+          }
           if (!redirErrF) {
             errCode = errno;
             throw (UString("Can't redirect stderr to ") + redirErr);
@@ -457,7 +466,16 @@ static int StartInServerMode(UStringVector &commandStrings)
         }
         if (!redirOut.IsEmpty()) {
           // g_StdOut << "  stdout > " << redirOut << endl;
-          redirOutF = _wfopen(redirOut, L"wt");
+          if (redirOut.IsPrefixedBy(L"&")) { // >&n
+            const wchar_t *p = redirOut;
+            DWORD nHandle = ConvertStringToUInt32(p+1, &p);
+            if (*p != L'\0') {
+              throw (UString("Integer expected by >&n"));
+            }
+            redirOutF = _wfdopen(nHandle, L"wt");
+          } else {
+            redirOutF = _wfopen(redirOut, L"wt");
+          }
           if (!redirOutF) {
             errCode = errno;
             throw (UString("Can't redirect stdout to ") + redirOut);
