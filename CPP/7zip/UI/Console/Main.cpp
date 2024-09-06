@@ -361,17 +361,18 @@ static int StartInServerMode(UStringVector &commandStrings)
   #endif
 
   UString scannedString;
+  CStdInStream orgStdIn = g_StdIn, *redirInStream;
   CStdOutStream orgStdOut = g_StdOut, orgStdErr = g_StdErr, 
-      *redirStdStream, *redirErrStream;
-  FILE *redirOutF, *redirErrF;
+      *redirOutStream, *redirErrStream;
+  FILE *redirInF, *redirOutF, *redirErrF;
   int errCode;
   UString errMsg;
   UString DisableHeaders("-ba");
   do {
     try {
 
-      redirOutF = 0; redirErrF = 0;
-      redirStdStream = NULL; redirErrStream = NULL;
+      redirInF = 0; redirOutF = 0; redirErrF = 0;
+      redirInStream = NULL; redirOutStream = NULL; redirErrStream = NULL;
       errCode = 0; errMsg = kNoErr;
       g_StdOut << endl << "# ";
       g_StdStream->Flush();
@@ -394,7 +395,7 @@ static int StartInServerMode(UStringVector &commandStrings)
           Int32 cp = FindCharset(commandStrings[1], true);
           g_StdOut.SetCodePage(cp); orgStdOut = g_StdOut;
           g_StdErr.SetCodePage(cp); orgStdErr = g_StdErr;
-          g_StdIn.SetCodePage(cp);
+          g_StdIn.SetCodePage(cp); orgStdIn = g_StdIn;
           continue;
         }
       }
@@ -406,12 +407,15 @@ static int StartInServerMode(UStringVector &commandStrings)
 
       // try to find redirect tokens in command:
       if (commandStrings.Size() > 2) {
-        UString redirOut, redirErr;
+        UString redirIn, redirOut, redirErr;
         int fullStdRedir = 1;
         for (unsigned i = commandStrings.Size()-1; i > 0; i--) {
           UString & p = commandStrings[i];
           // redirect as single parameter (prefix in parameter, like ">file"):
-          if (p.IsPrefixedBy(L">")) {
+          if (p.IsPrefixedBy(L"<")) {
+            redirIn = p.Mid(1, p.Len()-1);
+            commandStrings.Delete(i);
+          } else if (p.IsPrefixedBy(L">")) {
             redirOut = p.Mid(1, p.Len()-1);
             commandStrings.Delete(i);
             fullStdRedir = 0; // redirect CStdOutFileStream only (e. g. -so)
@@ -427,7 +431,10 @@ static int StartInServerMode(UStringVector &commandStrings)
             if (p2.Len() < 1 || p2.Len() > 2) {
               break;
             }
-            if (p2.IsEqualTo(">")) {
+            if (p2.IsEqualTo("<")) {
+              redirIn = p;
+              commandStrings.DeleteFrom(i);
+            } else if (p2.IsEqualTo(">")) {
               redirOut = p;
               commandStrings.DeleteFrom(i);
               fullStdRedir = 0; // redirect CStdOutFileStream only (e. g. -so)
@@ -445,6 +452,26 @@ static int StartInServerMode(UStringVector &commandStrings)
           }
         }
         // g_StdOut << "  cmd (" << commandStrings.Size() << "): " << commandStrings.Front() << " ... " << commandStrings.Back() << endl;
+        if (!redirIn.IsEmpty()) {
+          // g_StdOut << "  stdin < " << redirIn << endl;
+          if (redirIn.IsPrefixedBy(L"&")) { // <&n
+            const wchar_t *p = redirIn;
+            DWORD nHandle = ConvertStringToUInt32(p+1, &p);
+            if (*p != L'\0') {
+              throw (UString("Integer expected by <&n"));
+            }
+            redirInF = _wfdopen(nHandle, L"rt");
+          } else {
+            redirInF = _wfopen(redirIn, L"rt");
+          }
+          if (!redirInF) {
+            errCode = errno;
+            throw (UString("Can't redirect stdin to ") + redirIn);
+          }
+          CStdInFileStream::defIn = redirInF;
+          redirInStream = new CStdInStream(redirInF);
+          g_StdIn = *redirInStream;
+        }
         if (!redirErr.IsEmpty()) {
           // g_StdOut << "  stderr > " << redirErr << endl;
           if (redirErr.IsPrefixedBy(L"&")) { // 2>&n
@@ -482,7 +509,7 @@ static int StartInServerMode(UStringVector &commandStrings)
           }
           CStdOutFileStream::defOut = redirOutF;
           if (fullStdRedir) {
-            g_StdStream = redirStdStream = new CStdOutStream(redirOutF);
+            g_StdStream = redirOutStream = new CStdOutStream(redirOutF);
             g_StdOut = *g_StdStream;
           }
         }
@@ -496,6 +523,7 @@ static int StartInServerMode(UStringVector &commandStrings)
 
       // end of redirect - close output stream here (to throw an error if it fails):
       if (redirOutF) {
+        CStdOutFileStream::defOut = stdout;
         if (fclose(redirOutF) != 0) {
           errCode = errno;
           throw (UString("Error closing output channel"));
@@ -590,13 +618,22 @@ static int StartInServerMode(UStringVector &commandStrings)
         return errCode;
     }
     // end of redirect - restore streams:
+    if (redirInF) {
+      CStdInFileStream::defIn = stdin;
+      fclose(redirInF);
+      redirInF = 0;
+    }
+    if (redirInStream) {
+      delete redirInStream;
+      g_StdIn = orgStdIn;
+    }
     if (redirOutF) {
+      CStdOutFileStream::defOut = stdout;
       fclose(redirOutF);
       redirOutF = 0;
     }
-    CStdOutFileStream::defOut = stdout;
-    if (redirStdStream) {
-      delete redirStdStream;
+    if (redirOutStream) {
+      delete redirOutStream;
     }
     if (g_StdStream != &g_StdOut) {
       g_StdOut = orgStdOut;

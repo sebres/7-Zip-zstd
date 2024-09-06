@@ -114,9 +114,14 @@ class CStdInFileStream:
   public ISequentialInStream,
   public CMyUnknownImp
 {
+  int infno;
+  HANDLE infh;
+
 public:
   MY_UNKNOWN_IMP
 
+  static FILE *defIn;
+  CStdInFileStream();
   virtual ~CStdInFileStream() {}
   STDMETHOD(Read)(void *data, UInt32 size, UInt32 *processedSize);
 };

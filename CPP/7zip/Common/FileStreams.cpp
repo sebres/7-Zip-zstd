@@ -211,11 +211,15 @@ STDMETHODIMP CInFileStream::Read(void *data, UInt32 size, UInt32 *processedSize)
   }
 }
 
+FILE *CStdInFileStream::defIn = stdin;
+
 #ifdef UNDER_CE
+CStdInFileStream::CStdInFileStream() {}
+
 STDMETHODIMP CStdInFileStream::Read(void *data, UInt32 size, UInt32 *processedSize)
 {
-  size_t s2 = fread(data, 1, size, stdin);
-  int error = ferror(stdin);
+  size_t s2 = fread(data, 1, size, defIn);
+  int error = ferror(defIn);
   if (processedSize)
     *processedSize = s2;
   if (s2 <= size && error == 0)
@@ -223,6 +227,14 @@ STDMETHODIMP CStdInFileStream::Read(void *data, UInt32 size, UInt32 *processedSi
   return E_FAIL;
 }
 #else
+CStdInFileStream::CStdInFileStream()
+{
+  infno = _fileno(defIn);
+  #ifdef _WIN32
+  infh = (HANDLE)_get_osfhandle(infno);
+  #endif
+}
+
 STDMETHODIMP CStdInFileStream::Read(void *data, UInt32 size, UInt32 *processedSize)
 {
   #ifdef _WIN32
@@ -231,7 +243,7 @@ STDMETHODIMP CStdInFileStream::Read(void *data, UInt32 size, UInt32 *processedSi
   UInt32 sizeTemp = (1 << 20);
   if (sizeTemp > size)
     sizeTemp = size;
-  BOOL res = ::ReadFile(GetStdHandle(STD_INPUT_HANDLE), data, sizeTemp, &realProcessedSize, NULL);
+  BOOL res = ::ReadFile(infh, data, sizeTemp, &realProcessedSize, NULL);
   if (processedSize)
     *processedSize = realProcessedSize;
   if (res == FALSE && GetLastError() == ERROR_BROKEN_PIPE)
@@ -245,7 +257,7 @@ STDMETHODIMP CStdInFileStream::Read(void *data, UInt32 size, UInt32 *processedSi
   ssize_t res;
   do
   {
-    res = read(0, data, (size_t)size);
+    res = read(infno, data, (size_t)size);
   }
   while (res < 0 && (errno == EINTR));
   if (res == -1)
