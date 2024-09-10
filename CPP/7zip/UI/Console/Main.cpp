@@ -469,6 +469,7 @@ static int StartInServerMode(UStringVector &commandStrings)
         }
         // g_StdOut << "  cmd (" << commandStrings.Size() << "): " << commandStrings.Front() << " ... " << commandStrings.Back() << endl;
         if (!redirIn.IsEmpty()) {
+          UInt64 offs = 0;
           // g_StdOut << "  stdin < " << redirIn << endl;
           if (redirIn.IsPrefixedBy(L"&")) { // <&n
             const wchar_t *p = redirIn;
@@ -478,11 +479,33 @@ static int StartInServerMode(UStringVector &commandStrings)
             }
             redirInF = _wfdopen(nHandle, L"rt");
           } else {
+            int o = redirIn.Find(L"?offs=");
+            if (o != -1) {
+              const wchar_t *p = redirIn;
+              p += o + 6; // move after ?offs=
+              offs = ConvertStringToUInt64(p, &p);
+              if (*p != L'\0') {
+                throw (UString("Integer expected by ?offs="));
+              }
+              redirIn.DeleteFrom(o);
+            }
             redirInF = _wfopen(redirIn, L"rt");
           }
           if (!redirInF) {
             errCode = errno;
             throw (UString("Can't redirect stdin to ") + redirIn);
+          }
+          if (offs) {
+            int ret;
+          #ifdef _WIN32
+            ret = _fseeki64(redirInF, offs, SEEK_CUR);
+          #else
+            ret = fseeko(redirInF, offs, SEEK_CUR);
+          #endif
+            if (ret == -1) {
+              errCode = errno;
+              throw (UString("Can't seek to offs for ") + redirIn);
+            }
           }
           CStdInFileStream::defIn = redirInF;
           redirInStream = new CStdInStream(redirInF);
