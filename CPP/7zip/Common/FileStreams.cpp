@@ -729,6 +729,7 @@ HRESULT COutFileStream::GetSize(UInt64 *size)
 
 
 FILE *CStdOutFileStream::defOut = stdout;
+int CStdOutFileStream::defOutAppendMode = 0;
 
 #ifdef UNDER_CE
 
@@ -750,10 +751,33 @@ CStdOutFileStream::CStdOutFileStream(): _size(0)
   #ifdef _WIN32
   outfh = (HANDLE)_get_osfhandle(outfno);
   #endif
+
+  // because we use WriteFile below, we'll need to seek to the original position 
+  // for decriptor or outfh (considering append mode):
+  if (defOutAppendMode && defOutAppendMode != -1) {
+  #ifdef _WIN32
+    LARGE_INTEGER posli; posli.QuadPart = 0;
+    if (!SetFilePointerEx(outfh, posli, NULL, FILE_END)) {
+      defOutAppendMode = -1;
+    }
+  #else
+    if (llseek(outfno, 0, SEEK_END) == -1) {
+      defOutAppendMode = -1;
+    }
+  #endif
+  }
 }
 
 STDMETHODIMP CStdOutFileStream::Write(const void *data, UInt32 size, UInt32 *processedSize)
 {
+  if (defOutAppendMode == -1) {
+    size_t s2 = fwrite(data, 1, size, defOut);
+    if (processedSize)
+      *processedSize = (UInt32)s2;
+    _size += s2;
+    return (s2 == size) ? S_OK : E_FAIL;
+  }
+
   if (processedSize)
     *processedSize = 0;
 
@@ -761,7 +785,7 @@ STDMETHODIMP CStdOutFileStream::Write(const void *data, UInt32 size, UInt32 *pro
 
   UInt32 realProcessedSize;
   BOOL res = TRUE;
-  if (size > 0)
+  while (size > 0)
   {
     // Seems that Windows doesn't like big amounts writing to stdout.
     // So we limit portions by 32KB.
@@ -770,11 +794,13 @@ STDMETHODIMP CStdOutFileStream::Write(const void *data, UInt32 size, UInt32 *pro
       sizeTemp = size;
     res = ::WriteFile(outfh,
         data, sizeTemp, (DWORD *)&realProcessedSize, NULL);
+    if (res == FALSE) break;
     _size += realProcessedSize;
     size -= realProcessedSize;
     data = (const void *)((const Byte *)data + realProcessedSize);
     if (processedSize)
       *processedSize += realProcessedSize;
+    if (!realProcessedSize) break;
   }
   return ConvertBoolToHRESULT(res != FALSE);
 

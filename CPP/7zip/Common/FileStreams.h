@@ -184,6 +184,7 @@ public:
   MY_UNKNOWN_IMP
 
   static FILE *defOut;
+  static int defOutAppendMode;
   UInt64 GetSize() const { return _size; }
   CStdOutFileStream();
   virtual ~CStdOutFileStream() {}

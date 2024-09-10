@@ -408,6 +408,7 @@ static int StartInServerMode(UStringVector &commandStrings)
       // try to find redirect tokens in command:
       if (commandStrings.Size() > 2) {
         UString redirIn, redirOut, redirErr;
+        int appendMode = 0; 
         int fullStdRedir = 1;
         for (unsigned i = commandStrings.Size()-1; i > 0; i--) {
           UString & p = commandStrings[i];
@@ -416,14 +417,29 @@ static int StartInServerMode(UStringVector &commandStrings)
             redirIn = p.Mid(1, p.Len()-1);
             commandStrings.Delete(i);
           } else if (p.IsPrefixedBy(L">")) {
-            redirOut = p.Mid(1, p.Len()-1);
+            if (!p.IsPrefixedBy(L">>")) {
+              redirOut = p.Mid(1, p.Len()-1);
+            } else {
+              redirOut = p.Mid(2, p.Len()-2);
+              appendMode |= 1;
+            }
             commandStrings.Delete(i);
             fullStdRedir = 0; // redirect CStdOutFileStream only (e. g. -so)
           } else if (p.IsPrefixedBy(L"1>")) {
-            redirOut = p.Mid(2, p.Len()-2);
+            if (!p.IsPrefixedBy(L"1>>")) {
+              redirOut = p.Mid(2, p.Len()-2);
+            } else {
+              redirOut = p.Mid(3, p.Len()-3);
+              appendMode |= 1;
+            }
             commandStrings.Delete(i);
           } else if (p.IsPrefixedBy(L"2>")) {
-            redirErr = p.Mid(2, p.Len()-2);
+            if (!p.IsPrefixedBy(L"2>>")) {
+              redirErr = p.Mid(2, p.Len()-2);
+            } else {
+              redirErr = p.Mid(3, p.Len()-3);
+              appendMode |= 2;
+            }
             commandStrings.Delete(i);
           } else if (i > 0) {
             // redirect with 2 parameters (like > file):
@@ -434,14 +450,14 @@ static int StartInServerMode(UStringVector &commandStrings)
             if (p2.IsEqualTo("<")) {
               redirIn = p;
               commandStrings.DeleteFrom(i);
-            } else if (p2.IsEqualTo(">")) {
+            } else if (p2.IsEqualTo(">") || (p2.IsEqualTo(">>") && (appendMode |= 1))) {
               redirOut = p;
               commandStrings.DeleteFrom(i);
               fullStdRedir = 0; // redirect CStdOutFileStream only (e. g. -so)
-            } else if (p2.IsEqualTo("1>")) {
+            } else if (p2.IsEqualTo("1>") || (p2.IsEqualTo("1>>") && (appendMode |= 1))) {
               redirOut = p;
               commandStrings.DeleteFrom(i);
-            } else if (p2.IsEqualTo("2>")) {
+            } else if (p2.IsEqualTo("2>") || (p2.IsEqualTo("2>>") && (appendMode |= 2))) {
               redirErr = p;
               commandStrings.DeleteFrom(i);
             } else {
@@ -480,9 +496,9 @@ static int StartInServerMode(UStringVector &commandStrings)
             if (*p != L'\0') {
               throw (UString("Integer expected by 2>&n"));
             }
-            redirErrF = _wfdopen(nHandle, L"wt");
+            redirErrF = _wfdopen(nHandle, (!(appendMode & 2) ? L"wt" : L"at"));
           } else {
-            redirErrF = _wfopen(redirErr, L"wt");
+            redirErrF = _wfopen(redirErr, (!(appendMode & 2) ? L"wt" : L"at"));
           }
           if (!redirErrF) {
             errCode = errno;
@@ -499,15 +515,16 @@ static int StartInServerMode(UStringVector &commandStrings)
             if (*p != L'\0') {
               throw (UString("Integer expected by >&n"));
             }
-            redirOutF = _wfdopen(nHandle, L"wt");
+            redirOutF = _wfdopen(nHandle, (!(appendMode & 1) ? L"wt" : L"at"));
           } else {
-            redirOutF = _wfopen(redirOut, L"wt");
+            redirOutF = _wfopen(redirOut, (!(appendMode & 1) ? L"wt" : L"at"));
           }
           if (!redirOutF) {
             errCode = errno;
             throw (UString("Can't redirect stdout to ") + redirOut);
           }
           CStdOutFileStream::defOut = redirOutF;
+          CStdOutFileStream::defOutAppendMode = (appendMode & 1);
           if (fullStdRedir) {
             g_StdStream = redirOutStream = new CStdOutStream(redirOutF);
             g_StdOut = *g_StdStream;
@@ -524,6 +541,7 @@ static int StartInServerMode(UStringVector &commandStrings)
       // end of redirect - close output stream here (to throw an error if it fails):
       if (redirOutF) {
         CStdOutFileStream::defOut = stdout;
+        CStdOutFileStream::defOutAppendMode = 0;
         if (fclose(redirOutF) != 0) {
           errCode = errno;
           throw (UString("Error closing output channel"));
@@ -629,6 +647,7 @@ static int StartInServerMode(UStringVector &commandStrings)
     }
     if (redirOutF) {
       CStdOutFileStream::defOut = stdout;
+      CStdOutFileStream::defOutAppendMode = 0;
       fclose(redirOutF);
       redirOutF = 0;
     }
