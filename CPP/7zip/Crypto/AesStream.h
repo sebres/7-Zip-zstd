@@ -41,7 +41,7 @@ public:
 
   HRESULT Init(ISequentialOutStream *outStream, UString &password);
 
-  MY_UNKNOWN_IMP1(ISequentialOutStream)
+  Z7_COM_UNKNOWN_IMP_1(ISequentialOutStream)
   STDMETHOD(Write)(const void *data, UInt32 size, UInt32 *processedSize);
 };
 
@@ -75,7 +75,7 @@ public:
 
   HRESULT ReadAhead(void* data, UInt32 size, UInt32* processedSize);
 
-  MY_UNKNOWN_IMP1(ISequentialInStream)
+  Z7_COM_UNKNOWN_IMP_1(ISequentialInStream)
   STDMETHOD(Read)(void *data, UInt32 size, UInt32 *processedSize);
 };
 

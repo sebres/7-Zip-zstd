@@ -27,7 +27,7 @@ CDecoder::~CDecoder()
   }
 }
 
-STDMETHODIMP CDecoder::SetDecoderProperties2(const Byte * prop, UInt32 size)
+Z7_COM7F_IMF(CDecoder::SetDecoderProperties2(const Byte * prop, UInt32 size))
 {
   DProps *pProps = (DProps *)prop;
 
@@ -49,10 +49,10 @@ HRESULT CDecoder::SetOutStreamSizeResume(const UInt64 * /*outSize*/)
   return S_OK;
 }
 
-STDMETHODIMP CDecoder::SetOutStreamSize(const UInt64 * outSize)
+Z7_COM7F_IMF(CDecoder::SetOutStreamSize(const UInt64 * outSize))
 {
   _processedIn = 0;
-  RINOK(SetOutStreamSizeResume(outSize));
+  RINOK(SetOutStreamSizeResume(outSize))
   return S_OK;
 }
 
@@ -124,11 +124,11 @@ HRESULT CDecoder::CodeSpec(ISequentialInStream * inStream,
 
       /* write decompressed result */
       if (zOut.pos) {
-        RINOK(WriteStream(outStream, _dstBuf, zOut.pos));
+        RINOK(WriteStream(outStream, _dstBuf, zOut.pos))
         _processedOut += zOut.pos;
         if (progress)
         {
-          RINOK(progress->SetRatioInfo(&_processedIn, &_processedOut));
+          RINOK(progress->SetRatioInfo(&_processedIn, &_processedOut))
         }
       }
 
@@ -172,35 +172,35 @@ HRESULT CDecoder::CodeSpec(ISequentialInStream * inStream,
   }
 }
 
-STDMETHODIMP CDecoder::Code(ISequentialInStream * inStream, ISequentialOutStream * outStream,
-  const UInt64 * /*inSize */, const UInt64 *outSize, ICompressProgressInfo * progress)
+Z7_COM7F_IMF(CDecoder::Code(ISequentialInStream * inStream, ISequentialOutStream * outStream,
+  const UInt64 * /*inSize */, const UInt64 *outSize, ICompressProgressInfo * progress))
 {
   SetOutStreamSize(outSize);
   return CodeSpec(inStream, outStream, progress);
 }
 
-#ifndef NO_READ_FROM_CODER
-STDMETHODIMP CDecoder::SetInStream(ISequentialInStream * inStream)
+#ifndef Z7_NO_READ_FROM_CODER
+Z7_COM7F_IMF(CDecoder::SetInStream(ISequentialInStream * inStream))
 {
   _inStream = inStream;
   return S_OK;
 }
 
-STDMETHODIMP CDecoder::ReleaseInStream()
+Z7_COM7F_IMF(CDecoder::ReleaseInStream())
 {
   _inStream.Release();
   return S_OK;
 }
 #endif
 
-STDMETHODIMP CDecoder::SetNumberOfThreads(UInt32 /* numThreads */)
+Z7_COM7F_IMF(CDecoder::SetNumberOfThreads(UInt32 /* numThreads */))
 {
   return S_OK;
 }
 
 HRESULT CDecoder::CodeResume(ISequentialOutStream * outStream, const UInt64 * outSize, ICompressProgressInfo * progress)
 {
-  RINOK(SetOutStreamSizeResume(outSize));
+  RINOK(SetOutStreamSizeResume(outSize))
   return CodeSpec(_inStream, outStream, progress);
 }
 

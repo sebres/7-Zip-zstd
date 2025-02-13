@@ -1,11 +1,13 @@
 // Common/MyTypes.h
 
-#ifndef __COMMON_MY_TYPES_H
-#define __COMMON_MY_TYPES_H
+#ifndef ZIP7_INC_COMMON_MY_TYPES_H
+#define ZIP7_INC_COMMON_MY_TYPES_H
 
+#include "Common0.h"
 #include "../../C/7zTypes.h"
 
-typedef int HRes;
+// typedef int HRes;
+// typedef HRESULT HRes;
 
 struct CBoolPair
 {
@@ -32,22 +34,6 @@ struct CBoolPair
     Def = true;
   }
 };
-
-#define CLASS_NO_COPY(cls) \
-  private: \
-  cls(const cls &); \
-  cls &operator=(const cls &);
-
-class CUncopyable
-{
-protected:
-  CUncopyable() {} // allow constructor
-  // ~CUncopyable() {}
-CLASS_NO_COPY(CUncopyable)
-};
-
-#define MY_UNCOPYABLE  :private CUncopyable
-// #define MY_UNCOPYABLE
 
 /* CP_UNICODE - basically same as MY__CP_UTF16, but used srv-mode in console pipes only... */
 #define CP_UNICODE 1200

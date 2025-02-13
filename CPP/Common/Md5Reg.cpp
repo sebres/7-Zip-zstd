@@ -1,43 +1,44 @@
-// Md5Reg.cpp /TR 2018-11-02
+// Md5Reg.cpp
 
 #include "StdAfx.h"
 
-#include "../../C/CpuArch.h"
+#include "../../C/Md5.h"
 
-EXTERN_C_BEGIN
-#include "../../C/hashes/md5.h"
-EXTERN_C_END
-
+#include "../Common/MyBuffer2.h"
 #include "../Common/MyCom.h"
+
 #include "../7zip/Common/RegisterCodec.h"
 
-// MD5
-class CMD5Hasher:
-  public IHasher,
-  public CMyUnknownImp
-{
-  MD5_CTX _ctx;
-  Byte mtDummy[1 << 7];
-
+Z7_CLASS_IMP_COM_1(
+  CMd5Hasher
+  , IHasher
+)
+  CAlignedBuffer1 _buf;
 public:
-  CMD5Hasher() { MD5_Init(&_ctx); }
+  Byte _mtDummy[1 << 7];
 
-  MY_UNKNOWN_IMP1(IHasher)
-  INTERFACE_IHasher(;)
+  CMd5 *Md5() { return (CMd5 *)(void *)(Byte *)_buf; }
+public:
+  CMd5Hasher():
+    _buf(sizeof(CMd5))
+  {
+    Md5_Init(Md5());
+  }
 };
 
-STDMETHODIMP_(void) CMD5Hasher::Init() throw()
+Z7_COM7F_IMF2(void, CMd5Hasher::Init())
 {
-  MD5_Init(&_ctx);
+  Md5_Init(Md5());
 }
 
-STDMETHODIMP_(void) CMD5Hasher::Update(const void *data, UInt32 size) throw()
+Z7_COM7F_IMF2(void, CMd5Hasher::Update(const void *data, UInt32 size))
 {
-  MD5_Update(&_ctx, (const Byte *)data, size);
+  Md5_Update(Md5(), (const Byte *)data, size);
 }
 
-STDMETHODIMP_(void) CMD5Hasher::Final(Byte *digest) throw()
+Z7_COM7F_IMF2(void, CMd5Hasher::Final(Byte *digest))
 {
-  MD5_Final(digest, &_ctx);
+  Md5_Final(Md5(), digest);
 }
-REGISTER_HASHER(CMD5Hasher, 0x207, "MD5", MD5_DIGEST_LENGTH)
+
+REGISTER_HASHER(CMd5Hasher, 0x208, "MD5", MD5_DIGEST_SIZE)

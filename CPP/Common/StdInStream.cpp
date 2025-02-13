@@ -16,9 +16,11 @@
 // #define kReadErrorMessage "Error reading input stream"
 // #define kIllegalCharMessage "Illegal zero character in input stream"
 
-#define kFileOpenMode TEXT("r")
 
 CStdInStream g_StdIn(stdin);
+
+/*
+#define kFileOpenMode TEXT("r")
 
 bool CStdInStream::Open(LPCTSTR fileName) throw()
 {
@@ -41,6 +43,7 @@ bool CStdInStream::Close() throw()
   _streamIsOpen = (fclose(_stream) != 0);
   return !_streamIsOpen;
 }
+*/
 
 #define MAX_CH_READ 1024
 
@@ -92,7 +95,7 @@ bool CStdInStream::ScanUStringUntilNewLine(UString &dest)
   else {
     AString s;
     bool res = ScanAStringUntilNewLine(s);
-    MultiByteToUnicodeString2(dest, s, (UINT)codePage);
+    MultiByteToUnicodeString2(dest, s, (UINT)(unsigned)codePage);
     return res;
   }
 }

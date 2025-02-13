@@ -59,9 +59,9 @@ static const unsigned kSectorSizeLog = 9;
 #define LP_METADATA_GEOMETRY_SIZE 4096
 #define LP_METADATA_HEADER_MAGIC 0x414C5030
 
-#define SIGNATURE { 0x67, 0x44, 0x6c, 0x61, 0x34, 0, 0, 0 }
 static const unsigned k_SignatureSize = 8;
-static const Byte k_Signature[k_SignatureSize] = SIGNATURE;
+static const Byte k_Signature[k_SignatureSize] =
+  { 0x67, 0x44, 0x6c, 0x61, 0x34, 0, 0, 0 };
 
 // The length (36) is the same as the maximum length of a GPT partition name.
 static const unsigned kNameLen = 36;
@@ -103,9 +103,9 @@ struct CGeometry
 
   bool Parse(const Byte *p)
   {
-    G32 (40, metadata_max_size);
-    G32 (44, metadata_slot_count);
-    G32 (48, logical_block_size);
+    G32 (40, metadata_max_size)
+    G32 (44, metadata_slot_count)
+    G32 (48, logical_block_size)
     if (metadata_slot_count == 0 || metadata_slot_count >= ((UInt32)1 << 20))
       return false;
     if (metadata_max_size == 0)
@@ -135,9 +135,9 @@ struct CDescriptor
 
   void Parse(const Byte *p)
   {
-    G32 (0, offset);
-    G32 (4, num_entries);
-    G32 (8, entry_size);
+    G32 (0, offset)
+    G32 (4, num_entries)
+    G32 (8, entry_size)
   }
  
   bool CheckLimits(UInt32 limit) const
@@ -208,10 +208,10 @@ struct CPartition
   void Parse(const Byte *p)
   {
     memcpy(name, p, kNameLen);
-    G32 (36, attributes);
-    G32 (40, first_extent_index);
-    G32 (44, num_extents);
-    G32 (48, group_index);
+    G32 (36, attributes)
+    G32 (40, first_extent_index)
+    G32 (44, num_extents)
+    G32 (48, group_index)
   }
 
   // calced properties:
@@ -264,10 +264,10 @@ struct CExtent
 
   void Parse(const Byte *p)
   {
-    G64 (0, num_sectors);
-    G32 (8, target_type);
-    G64 (12, target_data);
-    G32 (20, target_source);
+    G64 (0, num_sectors)
+    G32 (8, target_type)
+    G64 (12, target_data)
+    G32 (20, target_source)
   }
 };
 
@@ -289,8 +289,8 @@ struct CGroup
   void Parse(const Byte *p)
   {
     memcpy(name, p, kNameLen);
-    G32 (36, flags);
-    G64 (40, maximum_size);
+    G32 (36, flags)
+    G64 (40, maximum_size)
   }
 };
 
@@ -358,11 +358,11 @@ struct CDevice
   void Parse(const Byte *p)
   {
     memcpy(partition_name, p + 24, kNameLen);
-    G64 (0, first_logical_sector);
-    G32 (8, alignment);
-    G32 (12, alignment_offset);
-    G64 (16, size);
-    G32 (60, flags);
+    G64 (0, first_logical_sector)
+    G32 (8, alignment)
+    G32 (12, alignment_offset)
+    G64 (16, size)
+    G32 (60, flags)
   }
 };
 
@@ -439,9 +439,9 @@ struct LpMetadataHeader
 
   void Parse128(const Byte *p)
   {
-    G32 (0, magic);
-    G16 (4, major_version);
-    G16 (6, minor_version);
+    G32 (0, magic)
+    G16 (4, major_version)
+    G16 (6, minor_version)
     G32 (8, header_size)
     // Byte header_checksum[32];
     G32 (44, tables_size)
@@ -460,9 +460,11 @@ struct LpMetadataHeader
 
 static bool CheckSha256(const Byte *data, size_t size, const Byte *checksum)
 {
+  MY_ALIGN (16)
   CSha256 sha;
   Sha256_Init(&sha);
   Sha256_Update(&sha, data, size);
+  MY_ALIGN (16)
   Byte calced[32];
   Sha256_Final(&sha, calced);
   return memcmp(checksum, calced, 32) == 0;
@@ -470,6 +472,7 @@ static bool CheckSha256(const Byte *data, size_t size, const Byte *checksum)
 
 static bool CheckSha256_csOffset(Byte *data, size_t size, unsigned hashOffset)
 {
+  MY_ALIGN (4)
   Byte checksum[32];
   Byte *shaData = &data[hashOffset];
   memcpy(checksum, shaData, 32);
@@ -479,11 +482,9 @@ static bool CheckSha256_csOffset(Byte *data, size_t size, unsigned hashOffset)
 
 
 
-class CHandler:
-  public IInArchive,
-  public IInArchiveGetStream,
-  public CMyUnknownImp
-{
+Z7_CLASS_IMP_CHandler_IInArchive_1(
+  IInArchiveGetStream
+)
   CRecordVector<CPartition> _items;
   CRecordVector<CExtent> Extents;
 
@@ -505,11 +506,6 @@ class CHandler:
   AString DeviceArcName;
 
   HRESULT Open2(IInStream *stream);
-
-public:
-  MY_UNKNOWN_IMP2(IInArchive, IInArchiveGetStream)
-  INTERFACE_IInArchive(;)
-  STDMETHOD(GetStream)(UInt32 index, ISequentialInStream **stream);
 };
 
 
@@ -533,10 +529,11 @@ static bool IsBufZero(const Byte *data, size_t size)
 
 HRESULT CHandler::Open2(IInStream *stream)
 {
-  RINOK(stream->Seek(LP_PARTITION_RESERVED_BYTES, STREAM_SEEK_SET, NULL));
+  RINOK(InStream_SeekSet(stream, LP_PARTITION_RESERVED_BYTES))
   {
+    MY_ALIGN (4)
     Byte buf[k_Geometry_Size];
-    RINOK(ReadStream_FALSE(stream, buf, k_Geometry_Size));
+    RINOK(ReadStream_FALSE(stream, buf, k_Geometry_Size))
     if (memcmp(buf, k_Signature, k_SignatureSize) != 0)
       return S_FALSE;
     if (!geom.Parse(buf))
@@ -546,11 +543,11 @@ HRESULT CHandler::Open2(IInStream *stream)
   }
 
   CByteBuffer buffer;
-  RINOK(stream->Seek(0, STREAM_SEEK_SET, NULL));
+  RINOK(InStream_SeekToBegin(stream))
   buffer.Alloc(LP_METADATA_GEOMETRY_SIZE * 2);
   {
     // buffer.Size() >= LP_PARTITION_RESERVED_BYTES
-    RINOK(ReadStream_FALSE(stream, buffer, LP_PARTITION_RESERVED_BYTES));
+    RINOK(ReadStream_FALSE(stream, buffer, LP_PARTITION_RESERVED_BYTES))
     if (!IsBufZero(buffer, LP_PARTITION_RESERVED_BYTES))
     {
       _headerWarning = true;
@@ -558,7 +555,7 @@ HRESULT CHandler::Open2(IInStream *stream)
     }
   }
 
-  RINOK(ReadStream_FALSE(stream, buffer, LP_METADATA_GEOMETRY_SIZE * 2));
+  RINOK(ReadStream_FALSE(stream, buffer, LP_METADATA_GEOMETRY_SIZE * 2))
   // we check that 2 copies of GEOMETRY are identical:
   if (memcmp(buffer, buffer + LP_METADATA_GEOMETRY_SIZE, LP_METADATA_GEOMETRY_SIZE) != 0
       || !IsBufZero(buffer + k_Geometry_Size, LP_METADATA_GEOMETRY_SIZE - k_Geometry_Size))
@@ -567,7 +564,7 @@ HRESULT CHandler::Open2(IInStream *stream)
     // return S_FALSE;
   }
 
-  RINOK(ReadStream_FALSE(stream, buffer, k_LpMetadataHeader10_size));
+  RINOK(ReadStream_FALSE(stream, buffer, k_LpMetadataHeader10_size))
   LpMetadataHeader header;
   header.Parse128(buffer);
   if (header.magic != LP_METADATA_HEADER_MAGIC ||
@@ -580,7 +577,7 @@ HRESULT CHandler::Open2(IInStream *stream)
     if (header.header_size != k_LpMetadataHeader12_size)
       return S_FALSE;
     RINOK(ReadStream_FALSE(stream, buffer + k_LpMetadataHeader10_size,
-        header.header_size - k_LpMetadataHeader10_size));
+        header.header_size - k_LpMetadataHeader10_size))
     Flags = Get32(buffer + k_LpMetadataHeader10_size);
   }
   Major_version = header.major_version;
@@ -594,7 +591,7 @@ HRESULT CHandler::Open2(IInStream *stream)
     return S_FALSE;
 
   buffer.AllocAtLeast(header.tables_size);
-  RINOK(ReadStream_FALSE(stream, buffer, header.tables_size));
+  RINOK(ReadStream_FALSE(stream, buffer, header.tables_size))
 
   const UInt64 totalMetaSize = geom.GetTotalMetadataSize();
   // _headersSize = _totalSize;
@@ -733,13 +730,13 @@ HRESULT CHandler::Open2(IInStream *stream)
 }
 
 
-STDMETHODIMP CHandler::Open(IInStream *stream,
+Z7_COM7F_IMF(CHandler::Open(IInStream *stream,
     const UInt64 * /* maxCheckStartPosition */,
-    IArchiveOpenCallback * /* openArchiveCallback */)
+    IArchiveOpenCallback * /* openArchiveCallback */))
 {
   COM_TRY_BEGIN
   Close();
-  RINOK(Open2(stream));
+  RINOK(Open2(stream))
   _stream = stream;
 
   int mainFileIndex = -1;
@@ -750,7 +747,7 @@ STDMETHODIMP CHandler::Open(IInStream *stream,
     CPartition &item = _items[fileIndex];
     if (item.NumSectors != 0)
     {
-      mainFileIndex = fileIndex;
+      mainFileIndex = (int)fileIndex;
       numNonEmptyParts++;
       CMyComPtr<ISequentialInStream> parseStream;
       if (GetStream(fileIndex, &parseStream) == S_OK && parseStream)
@@ -775,7 +772,7 @@ STDMETHODIMP CHandler::Open(IInStream *stream,
 }
 
 
-STDMETHODIMP CHandler::Close()
+Z7_COM7F_IMF(CHandler::Close())
 {
   _totalSize = 0;
   // _usedSize = 0;
@@ -818,7 +815,7 @@ static const Byte kArcProps[] =
 IMP_IInArchive_Props
 IMP_IInArchive_ArcProps
 
-STDMETHODIMP CHandler::GetArchiveProperty(PROPID propID, PROPVARIANT *value)
+Z7_COM7F_IMF(CHandler::GetArchiveProperty(PROPID propID, PROPVARIANT *value))
 {
   COM_TRY_BEGIN
   NCOM::CPropVariant prop;
@@ -849,7 +846,7 @@ STDMETHODIMP CHandler::GetArchiveProperty(PROPID propID, PROPVARIANT *value)
     {
       AString s;
       s.Add_UInt32(Major_version);
-      s += '.';
+      s.Add_Dot();
       s.Add_UInt32(Minor_version);
       prop = s;
       break;
@@ -874,7 +871,7 @@ STDMETHODIMP CHandler::GetArchiveProperty(PROPID propID, PROPVARIANT *value)
       if (Flags != 0)
       {
         s += "flags: ";
-        s += FlagsToString(g_Header_Flags, ARRAY_SIZE(g_Header_Flags), Flags);
+        s += FlagsToString(g_Header_Flags, Z7_ARRAY_SIZE(g_Header_Flags), Flags);
         s.Add_LF();
       }
 
@@ -916,14 +913,14 @@ STDMETHODIMP CHandler::GetArchiveProperty(PROPID propID, PROPVARIANT *value)
 }
 
 
-STDMETHODIMP CHandler::GetNumberOfItems(UInt32 *numItems)
+Z7_COM7F_IMF(CHandler::GetNumberOfItems(UInt32 *numItems))
 {
   *numItems = _items.Size();
   return S_OK;
 }
 
 
-STDMETHODIMP CHandler::GetProperty(UInt32 index, PROPID propID, PROPVARIANT *value)
+Z7_COM7F_IMF(CHandler::GetProperty(UInt32 index, PROPID propID, PROPVARIANT *value))
 {
   COM_TRY_BEGIN
   NCOM::CPropVariant prop;
@@ -940,7 +937,7 @@ STDMETHODIMP CHandler::GetProperty(UInt32 index, PROPID propID, PROPVARIANT *val
         s.Add_UInt32(index);
       if (item.num_extents != 0)
       {
-        s += '.';
+        s.Add_Dot();
         s += (item.Ext ? item.Ext : "img");
       }
       prop = s;
@@ -971,7 +968,7 @@ STDMETHODIMP CHandler::GetProperty(UInt32 index, PROPID propID, PROPVARIANT *val
       s += "group:";
       s.Add_UInt32(item.group_index);
       s.Add_Space();
-      s += FlagsToString(g_PartitionAttr, ARRAY_SIZE(g_PartitionAttr), item.attributes);
+      s += FlagsToString(g_PartitionAttr, Z7_ARRAY_SIZE(g_PartitionAttr), item.attributes);
       prop = s;
       break;
     }
@@ -984,7 +981,7 @@ STDMETHODIMP CHandler::GetProperty(UInt32 index, PROPID propID, PROPVARIANT *val
 
 
 
-STDMETHODIMP CHandler::GetStream(UInt32 index, ISequentialInStream **stream)
+Z7_COM7F_IMF(CHandler::GetStream(UInt32 index, ISequentialInStream **stream))
 {
   COM_TRY_BEGIN
   *stream = NULL;
@@ -1093,8 +1090,8 @@ STDMETHODIMP CHandler::GetStream(UInt32 index, ISequentialInStream **stream)
 }
 
 
-STDMETHODIMP CHandler::Extract(const UInt32 *indices, UInt32 numItems,
-    Int32 testMode, IArchiveExtractCallback *extractCallback)
+Z7_COM7F_IMF(CHandler::Extract(const UInt32 *indices, UInt32 numItems,
+    Int32 testMode, IArchiveExtractCallback *extractCallback))
 {
   COM_TRY_BEGIN
   const bool allFilesMode = (numItems == (UInt32)(Int32)-1);
@@ -1124,21 +1121,21 @@ STDMETHODIMP CHandler::Extract(const UInt32 *indices, UInt32 numItems,
   {
     lps->InSize = totalSize;
     lps->OutSize = totalSize;
-    RINOK(lps->SetCur());
+    RINOK(lps->SetCur())
     CMyComPtr<ISequentialOutStream> outStream;
     const Int32 askMode = testMode ?
         NExtract::NAskMode::kTest :
         NExtract::NAskMode::kExtract;
     const UInt32 index = allFilesMode ? i : indices[i];
     
-    RINOK(extractCallback->GetStream(index, &outStream, askMode));
+    RINOK(extractCallback->GetStream(index, &outStream, askMode))
 
     const UInt64 size = _items[index].GetSize();
     totalSize += size;
     if (!testMode && !outStream)
       continue;
     
-    RINOK(extractCallback->PrepareOperation(askMode));
+    RINOK(extractCallback->PrepareOperation(askMode))
 
     CMyComPtr<ISequentialInStream> inStream;
     const HRESULT hres = GetStream(index, &inStream);
@@ -1147,7 +1144,7 @@ STDMETHODIMP CHandler::Extract(const UInt32 *indices, UInt32 numItems,
     {
       if (hres != S_OK)
         return hres;
-      RINOK(copyCoder->Code(inStream, outStream, NULL, NULL, progress));
+      RINOK(copyCoder->Code(inStream, outStream, NULL, NULL, progress))
       opRes = NExtract::NOperationResult::kDataError;
       if (copyCoderSpec->TotalSize == size)
         opRes = NExtract::NOperationResult::kOK;
@@ -1155,7 +1152,7 @@ STDMETHODIMP CHandler::Extract(const UInt32 *indices, UInt32 numItems,
         opRes = NExtract::NOperationResult::kUnexpectedEnd;
     }
     outStream.Release();
-    RINOK(extractCallback->SetOperationResult(opRes));
+    RINOK(extractCallback->SetOperationResult(opRes))
   }
   
   return S_OK;

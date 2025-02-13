@@ -14,7 +14,7 @@ endif
 
 ifdef ST_MODE
 
-LOCAL_FLAGS_ST = -D_7ZIP_ST
+LOCAL_FLAGS_ST = -DZ7_ST
 
 ifdef IS_MINGW
 MT_OBJS = \
@@ -27,13 +27,13 @@ else
 MT_OBJS = \
   $O/LzFindMt.o \
   $O/LzFindOpt.o \
-  $O/StreamBinder.o \
-  $O/Synchronization.o \
-  $O/VirtThread.o \
+  $O/Threads.o \
   $O/MemBlocks.o \
   $O/OutMemStream.o \
   $O/ProgressMt.o \
-  $O/Threads.o \
+  $O/StreamBinder.o \
+  $O/Synchronization.o \
+  $O/VirtThread.o \
 
 endif
 
@@ -45,6 +45,7 @@ COMMON_OBJS = \
   $O/DynLimBuf.o \
   $O/IntToString.o \
   $O/LzFindPrepare.o \
+  $O/Md5Reg.o \
   $O/MyMap.o \
   $O/MyString.o \
   $O/MyVector.o \
@@ -54,10 +55,14 @@ COMMON_OBJS = \
   $O/Sha1Reg.o \
   $O/Sha256Prepare.o \
   $O/Sha256Reg.o \
+  $O/Sha3Reg.o \
+  $O/Sha512Prepare.o \
+  $O/Sha512Reg.o \
   $O/StringConvert.o \
   $O/StringToInt.o \
   $O/UTFConvert.o \
   $O/Wildcard.o \
+  $O/Xxh64Reg.o \
   $O/XzCrc64Init.o \
   $O/XzCrc64Reg.o \
 
@@ -135,6 +140,10 @@ AR_OBJS = \
   $O/XarHandler.o \
   $O/XzHandler.o \
   $O/ZHandler.o \
+  $O/ZstdHandler.o \
+
+#  $O/AvbHandler.o
+#  $O/LvmHandler.o
 
 AR_COMMON_OBJS = \
   $O/CoderMixer2.o \
@@ -269,6 +278,7 @@ COMPRESS_OBJS = \
   $O/ZlibDecoder.o \
   $O/ZlibEncoder.o \
   $O/ZDecoder.o \
+  $O/ZstdDecoder.o \
 
 ifdef DISABLE_RAR
 DISABLE_RAR_COMPRESS=1
@@ -310,7 +320,11 @@ endif
 
 C_OBJS = \
   $O/7zBuf2.o \
+  $O/7zCrc.o \
+  $O/7zCrcOpt.o \
   $O/7zStream.o \
+  $O/Aes.o \
+  $O/AesOpt.o \
   $O/Alloc.o \
   $O/Bcj2.o \
   $O/Bcj2Enc.o \
@@ -328,6 +342,7 @@ C_OBJS = \
   $O/Lzma2Enc.o \
   $O/LzmaDec.o \
   $O/LzmaEnc.o \
+  $O/Md5.o \
   $O/MtCoder.o \
   $O/MtDec.o \
   $O/Ppmd7.o \
@@ -337,21 +352,22 @@ C_OBJS = \
   $O/Ppmd8.o \
   $O/Ppmd8Dec.o \
   $O/Ppmd8Enc.o \
+  $O/Sha1.o \
+  $O/Sha1Opt.o \
+  $O/Sha256.o \
+  $O/Sha256Opt.o \
+  $O/Sha3.o \
+  $O/Sha512.o \
+  $O/Sha512Opt.o \
   $O/Sort.o \
+  $O/SwapBytes.o \
+  $O/Xxh64.o \
   $O/Xz.o \
   $O/XzDec.o \
   $O/XzEnc.o \
   $O/XzIn.o \
   $O/XzCrc64.o \
   $O/XzCrc64Opt.o \
-  $O/7zCrc.o \
-  $O/7zCrcOpt.o \
-  $O/Aes.o \
-  $O/AesOpt.o \
-  $O/Sha256.o \
-  $O/Sha256Opt.o \
-  $O/Sha1.o \
-  $O/Sha1Opt.o \
 
 ARC_OBJS = \
   $(LZMA_DEC_OPT_OBJS) \
@@ -359,6 +375,7 @@ ARC_OBJS = \
   $(MT_OBJS) \
   $(COMMON_OBJS) \
   $(WIN_OBJS) \
+  $(7ZIP_COMMON_OBJS) \
   $(AR_OBJS) \
   $(AR_COMMON_OBJS) \
   $(7Z_OBJS) \
@@ -374,5 +391,5 @@ ARC_OBJS = \
   $(ZIP_OBJS) \
   $(COMPRESS_OBJS) \
   $(CRYPTO_OBJS) \
-  $(7ZIP_COMMON_OBJS) \
 
+# we need empty line after last line above

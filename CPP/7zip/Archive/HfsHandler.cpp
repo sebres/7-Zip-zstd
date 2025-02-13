@@ -25,6 +25,9 @@
 #define Get32(p) GetBe32(p)
 #define Get64(p) GetBe64(p)
 
+#define Get16a(p) GetBe16a(p)
+#define Get32a(p) GetBe32a(p)
+
 namespace NArchive {
 namespace NHfs {
 
@@ -104,38 +107,36 @@ UInt32 CFork::Calc_NumBlocks_from_Extents() const
 {
   UInt32 num = 0;
   FOR_VECTOR (i, Extents)
-  {
     num += Extents[i].NumBlocks;
-  }
   return num;
 }
 
 bool CFork::Check_NumBlocks() const
 {
-  UInt32 num = 0;
+  UInt32 num = NumBlocks;
   FOR_VECTOR (i, Extents)
   {
-    UInt32 next = num + Extents[i].NumBlocks;
-    if (next < num)
+    const UInt32 cur = Extents[i].NumBlocks;
+    if (num < cur)
       return false;
-    num = next;
+    num -= cur;
   }
-  return num == NumBlocks;
+  return num == 0;
 }
 
 struct CIdIndexPair
 {
   UInt32 ID;
-  int Index;
+  unsigned Index;
 
   int Compare(const CIdIndexPair &a) const;
 };
 
-#define RINOZ(x) { int __tt = (x); if (__tt != 0) return __tt; }
+#define RINOZ(x) { const int _t_ = (x); if (_t_ != 0) return _t_; }
 
 int CIdIndexPair::Compare(const CIdIndexPair &a) const
 {
-  RINOZ(MyCompare(ID, a.ID));
+  RINOZ(MyCompare(ID, a.ID))
   return MyCompare(Index, a.Index);
 }
 
@@ -144,10 +145,10 @@ static int FindItemIndex(const CRecordVector<CIdIndexPair> &items, UInt32 id)
   unsigned left = 0, right = items.Size();
   while (left != right)
   {
-    unsigned mid = (left + right) / 2;
-    UInt32 midVal = items[mid].ID;
+    const unsigned mid = (left + right) / 2;
+    const UInt32 midVal = items[mid].ID;
     if (id == midVal)
-      return items[mid].Index;
+      return (int)items[mid].Index;
     if (id < midVal)
       right = mid;
     else
@@ -161,10 +162,10 @@ static int Find_in_IdExtents(const CObjectVector<CIdExtents> &items, UInt32 id)
   unsigned left = 0, right = items.Size();
   while (left != right)
   {
-    unsigned mid = (left + right) / 2;
-    UInt32 midVal = items[mid].ID;
+    const unsigned mid = (left + right) / 2;
+    const UInt32 midVal = items[mid].ID;
     if (id == midVal)
-      return mid;
+      return (int)mid;
     if (id < midVal)
       right = mid;
     else
@@ -175,7 +176,7 @@ static int Find_in_IdExtents(const CObjectVector<CIdExtents> &items, UInt32 id)
 
 bool CFork::Upgrade(const CObjectVector<CIdExtents> &items, UInt32 id)
 {
-  int index = Find_in_IdExtents(items, id);
+  const int index = Find_in_IdExtents(items, id);
   if (index < 0)
     return true;
   const CIdExtents &item = items[index];
@@ -188,8 +189,13 @@ bool CFork::Upgrade(const CObjectVector<CIdExtents> &items, UInt32 id)
 
 struct CVolHeader
 {
-  Byte Header[2];
-  UInt16 Version;
+  unsigned BlockSizeLog;
+  UInt32 NumFiles;
+  UInt32 NumFolders;
+  UInt32 NumBlocks;
+  UInt32 NumFreeBlocks;
+
+  bool Is_Hsfx_ver5;
   // UInt32 Attr;
   // UInt32 LastMountedVersion;
   // UInt32 JournalInfoBlock;
@@ -199,19 +205,13 @@ struct CVolHeader
   // UInt32 BackupTime;
   // UInt32 CheckedTime;
   
-  UInt32 NumFiles;
-  UInt32 NumFolders;
-  unsigned BlockSizeLog;
-  UInt32 NumBlocks;
-  UInt32 NumFreeBlocks;
-
   // UInt32 WriteCount;
   // UInt32 FinderInfo[8];
   // UInt64 VolID;
 
   UInt64 GetPhySize() const { return (UInt64)NumBlocks << BlockSizeLog; }
   UInt64 GetFreeSize() const { return (UInt64)NumFreeBlocks << BlockSizeLog; }
-  bool IsHfsX() const { return Version > 4; }
+  bool IsHfsX() const { return Is_Hsfx_ver5; }
 };
 
 inline void HfsTimeToFileTime(UInt32 hfsTime, FILETIME &ft)
@@ -244,6 +244,8 @@ static const UInt32 kMethod_COPY_RSRC = 10;
 // static const UInt32 kMethod_LZFSE_ATTR = 11;
 static const UInt32 kMethod_LZFSE_RSRC = 12;
 
+// static const UInt32 kMethod_ZBM_RSRC = 14;
+
 static const char * const g_Methods[] =
 {
     NULL
@@ -259,6 +261,8 @@ static const char * const g_Methods[] =
   , "COPY-rsrc"
   , "LZFSE-attr"
   , "LZFSE-rsrc"
+  , NULL
+  , "ZBM-rsrc"
 };
 
 
@@ -281,7 +285,9 @@ void CCompressHeader::Parse(const Byte *p, size_t dataSize)
   if (   Method == kMethod_ZLIB_RSRC
       || Method == kMethod_COPY_RSRC
       || Method == kMethod_LZVN_RSRC
-      || Method == kMethod_LZFSE_RSRC)
+      || Method == kMethod_LZFSE_RSRC
+      // || Method == kMethod_ZBM_RSRC // for debug
+      )
   {
     IsResource = true;
     if (dataSize == 0)
@@ -327,7 +333,7 @@ void CCompressHeader::MethodToProp(NWindows::NCOM::CPropVariant &prop) const
     return;
   const UInt32 method = Method;
   const char *p = NULL;
-  if (method < ARRAY_SIZE(g_Methods))
+  if (method < Z7_ARRAY_SIZE(g_Methods))
     p = g_Methods[method];
   AString s;
   if (p)
@@ -457,18 +463,18 @@ public:
   bool UnsupportedFeature;
   bool ThereAreAltStreams;
   // bool CaseSensetive;
+  UInt32 MethodsMask;
   UString ResFileName;
 
   UInt64 SpecOffset;
-  UInt64 PhySize;
+  // UInt64 PhySize;
   UInt64 PhySize2;
   UInt64 ArcFileSize;
-  UInt32 MethodsMask;
 
   void Clear()
   {
     SpecOffset = 0;
-    PhySize = 0;
+    // PhySize = 0;
     PhySize2 = 0;
     ArcFileSize = 0;
     MethodsMask = 0;
@@ -520,7 +526,7 @@ void CDatabase::GetItemPath(unsigned index, NWindows::NCOM::CPropVariant &path) 
 {
   unsigned len = 0;
   const unsigned kNumLevelsMax = (1 << 10);
-  int cur = index;
+  unsigned cur = index;
   unsigned i;
   
   for (i = 0; i < kNumLevelsMax; i++)
@@ -537,8 +543,8 @@ void CDatabase::GetItemPath(unsigned index, NWindows::NCOM::CPropVariant &path) 
 
     len += s->Len();
     len++;
-    cur = ref.Parent;
-    if (cur < 0)
+    cur = (unsigned)ref.Parent;
+    if (ref.Parent < 0)
       break;
   }
   
@@ -580,7 +586,7 @@ void CDatabase::GetItemPath(unsigned index, NWindows::NCOM::CPropVariant &path) 
     if (len == 0)
       break;
     p[--len] = delimChar;
-    cur = ref.Parent;
+    cur = (unsigned)ref.Parent;
   }
 }
 
@@ -590,7 +596,7 @@ HRESULT CDatabase::ReadFile(const CFork &fork, CByteBuffer &buf, IInStream *inSt
 {
   if (fork.NumBlocks >= Header.NumBlocks)
     return S_FALSE;
-  if ((ArcFileSize >> Header.BlockSizeLog) + 1 < fork.NumBlocks)
+  if (((ArcFileSize - SpecOffset) >> Header.BlockSizeLog) + 1 < fork.NumBlocks)
     return S_FALSE;
 
   const size_t totalSize = (size_t)fork.NumBlocks << Header.BlockSizeLog;
@@ -607,10 +613,10 @@ HRESULT CDatabase::ReadFile(const CFork &fork, CByteBuffer &buf, IInStream *inSt
         e.NumBlocks > fork.NumBlocks - curBlock ||
         e.NumBlocks > Header.NumBlocks - e.Pos)
       return S_FALSE;
-    RINOK(inStream->Seek(SpecOffset + ((UInt64)e.Pos << Header.BlockSizeLog), STREAM_SEEK_SET, NULL));
+    RINOK(InStream_SeekSet(inStream, SpecOffset + ((UInt64)e.Pos << Header.BlockSizeLog)))
     RINOK(ReadStream_FALSE(inStream,
         (Byte *)buf + ((size_t)curBlock << Header.BlockSizeLog),
-        (size_t)e.NumBlocks << Header.BlockSizeLog));
+        (size_t)e.NumBlocks << Header.BlockSizeLog))
     curBlock += e.NumBlocks;
   }
   return S_OK;
@@ -733,13 +739,13 @@ HRESULT CDatabase::LoadExtentFile(const CFork &fork, IInStream *inStream, CObjec
   if (fork.NumBlocks == 0)
     return S_OK;
   CByteBuffer buf;
-  RINOK(ReadFile(fork, buf, inStream));
+  RINOK(ReadFile(fork, buf, inStream))
   const Byte *p = (const Byte *)buf;
 
   // CNodeDescriptor nodeDesc;
   // nodeDesc.Parse(p);
   CHeaderRec hr;
-  RINOK(hr.Parse2(buf));
+  RINOK(hr.Parse2(buf))
 
   UInt32 node = hr.FirstLeafNode;
   if (node == 0)
@@ -872,13 +878,13 @@ HRESULT CDatabase::LoadAttrs(const CFork &fork, IInStream *inStream, IArchiveOpe
     return S_OK;
 
   CByteBuffer AttrBuf;
-  RINOK(ReadFile(fork, AttrBuf, inStream));
+  RINOK(ReadFile(fork, AttrBuf, inStream))
   const Byte *p = (const Byte *)AttrBuf;
 
   // CNodeDescriptor nodeDesc;
   // nodeDesc.Parse(p);
   CHeaderRec hr;
-  RINOK(hr.Parse2(AttrBuf));
+  RINOK(hr.Parse2(AttrBuf))
   
   // CaseSensetive = (Header.IsHfsX() && hr.KeyCompareType == 0xBC);
 
@@ -948,7 +954,7 @@ HRESULT CDatabase::LoadAttrs(const CFork &fork, IInStream *inStream, IArchiveOpe
       if (progress && (Attrs.Size() & 0xFFF) == 0)
       {
         const UInt64 numFiles = 0;
-        RINOK(progress->SetCompleted(&numFiles, NULL));
+        RINOK(progress->SetCompleted(&numFiles, NULL))
       }
 
       if (Attrs.Size() >= ((UInt32)1 << 31))
@@ -1012,7 +1018,7 @@ bool CDatabase::Parse_decmpgfs(unsigned attrIndex, CItem &item, bool &skip)
 
   if (item.CompressHeader.IsCorrect)
   {
-    item.decmpfs_AttrIndex = attrIndex;
+    item.decmpfs_AttrIndex = (int)attrIndex;
     skip = true;
     if (item.CompressHeader.Method < sizeof(MethodsMask) * 8)
       MethodsMask |= ((UInt32)1 << item.CompressHeader.Method);
@@ -1025,13 +1031,13 @@ bool CDatabase::Parse_decmpgfs(unsigned attrIndex, CItem &item, bool &skip)
 HRESULT CDatabase::LoadCatalog(const CFork &fork, const CObjectVector<CIdExtents> *overflowExtentsArray, IInStream *inStream, IArchiveOpenCallback *progress)
 {
   CByteBuffer buf;
-  RINOK(ReadFile(fork, buf, inStream));
+  RINOK(ReadFile(fork, buf, inStream))
   const Byte *p = (const Byte *)buf;
 
   // CNodeDescriptor nodeDesc;
   // nodeDesc.Parse(p);
   CHeaderRec hr;
-  RINOK(hr.Parse2(buf));
+  RINOK(hr.Parse2(buf))
 
   CRecordVector<CIdIndexPair> IdToIndexMap;
 
@@ -1196,7 +1202,7 @@ HRESULT CDatabase::LoadCatalog(const CFork &fork, const CObjectVector<CIdExtents
       if (progress && (Items.Size() & 0xFFF) == 0)
       {
         const UInt64 numItems = Items.Size();
-        RINOK(progress->SetCompleted(&numItems, NULL));
+        RINOK(progress->SetCompleted(&numItems, NULL))
       }
     }
     node = desc.fLink;
@@ -1265,7 +1271,7 @@ HRESULT CDatabase::LoadCatalog(const CFork &fork, const CObjectVector<CIdExtents
 
       ThereAreAltStreams = true;
       ref.AttrIndex = kAttrIndex_Resource;
-      ref.Parent = Refs.Size() - 1;
+      ref.Parent = (int)(Refs.Size() - 1);
       Refs.Add(ref);
       
       #endif
@@ -1311,7 +1317,7 @@ HRESULT CDatabase::LoadCatalog(const CFork &fork, const CObjectVector<CIdExtents
       ThereAreAltStreams = true;
 
       CRef ref;
-      ref.AttrIndex = i;
+      ref.AttrIndex = (int)i;
       ref.Parent = refIndex;
       ref.ItemIndex = Refs[refIndex].ItemIndex;
       Refs.Add(ref);
@@ -1322,28 +1328,26 @@ HRESULT CDatabase::LoadCatalog(const CFork &fork, const CObjectVector<CIdExtents
   return S_OK;
 }
 
-static const unsigned kHeaderPadSize = (1 << 10);
+static const unsigned kHeaderPadSize = 1 << 10;
 static const unsigned kMainHeaderSize = 512;
 static const unsigned kHfsHeaderSize = kHeaderPadSize + kMainHeaderSize;
+
+static const unsigned k_Signature_LE16_HFS_BD = 'B' + ((unsigned)'D' << 8);
+static const unsigned k_Signature_LE16_HPLUS  = 'H' + ((unsigned)'+' << 8);
+static const UInt32   k_Signature_LE32_HFSP_VER4 = 'H' + ((UInt32)'+' << 8) + ((UInt32)4 << 24);
+static const UInt32   k_Signature_LE32_HFSX_VER5 = 'H' + ((UInt32)'X' << 8) + ((UInt32)5 << 24);
 
 API_FUNC_static_IsArc IsArc_HFS(const Byte *p, size_t size)
 {
   if (size < kHfsHeaderSize)
     return k_IsArc_Res_NEED_MORE;
   p += kHeaderPadSize;
-  if (p[0] == 'B' && p[1] == 'D')
-  {
-    if (p[0x7C] != 'H' || p[0x7C + 1] != '+')
-      return k_IsArc_Res_NO;
-  }
-  else
-  {
-    if (p[0] != 'H' || (p[1] != '+' && p[1] != 'X'))
-      return k_IsArc_Res_NO;
-    UInt32 version = Get16(p + 2);
-    if (version < 4 || version > 5)
-      return k_IsArc_Res_NO;
-  }
+  const UInt32 sig = GetUi32(p);
+  if (sig != k_Signature_LE32_HFSP_VER4)
+  if (sig != k_Signature_LE32_HFSX_VER5)
+  if ((UInt16)sig != k_Signature_LE16_HFS_BD
+      || GetUi16(p + 0x7c) != k_Signature_LE16_HPLUS)
+    return k_IsArc_Res_NO;
   return k_IsArc_Res_YES;
 }
 }
@@ -1351,30 +1355,42 @@ API_FUNC_static_IsArc IsArc_HFS(const Byte *p, size_t size)
 HRESULT CDatabase::Open2(IInStream *inStream, IArchiveOpenCallback *progress)
 {
   Clear();
-  Byte buf[kHfsHeaderSize];
-  RINOK(ReadStream_FALSE(inStream, buf, kHfsHeaderSize));
-  {
-    for (unsigned i = 0; i < kHeaderPadSize; i++)
-      if (buf[i] != 0)
-        return S_FALSE;
-  }
-  const Byte *p = buf + kHeaderPadSize;
+  UInt32 buf32[kHfsHeaderSize / 4];
+  RINOK(ReadStream_FALSE(inStream, buf32, kHfsHeaderSize))
+  const Byte *p = (const Byte *)buf32 + kHeaderPadSize;
   CVolHeader &h = Header;
 
-  h.Header[0] = p[0];
-  h.Header[1] = p[1];
-
-  if (p[0] == 'B' && p[1] == 'D')
+  if (GetUi16a(p) == k_Signature_LE16_HFS_BD)
   {
     /*
     It's header for old HFS format.
     We don't support old HFS format, but we support
-    special HFS volume that contains embedded HFS+ volume
+    special HFS volume that contains embedded HFS+ volume.
+    HFS MDB : Master directory block
+    HFS VIB : Volume information block
+    some old images contain boot data with "LK" signature at start of buf32.
     */
-
-    if (p[0x7C] != 'H' || p[0x7C + 1] != '+')
+#if 1
+    // here we check first bytes of archive,
+    // because start data can contain signature of some another
+    // archive type that could have priority over HFS.
+    const void *buf_ptr = (const void *)buf32;
+    const unsigned sig = GetUi16a(buf_ptr);
+    if (sig != 'L' + ((unsigned)'K' << 8))
+    {
+      // some old HFS (non HFS+) files have no "LK" signature,
+      // but have non-zero data after 2 first bytes in start 1 KiB.
+      if (sig != 0)
+        return S_FALSE;
+/*
+      for (unsigned i = 0; i < kHeaderPadSize / 4; i++)
+        if (buf32[i] != 0)
+          return S_FALSE;
+*/
+    }
+#endif
+    if (GetUi16a(p + 0x7c) != k_Signature_LE16_HPLUS) // signature of embedded HFS+ volume
       return S_FALSE;
-
     /*
     h.CTime = Get32(p + 0x2);
     h.MTime = Get32(p + 0x6);
@@ -1388,85 +1404,109 @@ HRESULT CDatabase::Open2(IInStream *inStream, IArchiveOpenCallback *progress)
     if (progress)
     {
       UInt64 numFiles = (UInt64)h.NumFiles + h.NumFolders + 1;
-      RINOK(progress->SetTotal(&numFiles, NULL));
+      RINOK(progress->SetTotal(&numFiles, NULL))
     }
     h.NumFreeBlocks = Get16(p + 0x22);
     */
     
-    UInt32 blockSize = Get32(p + 0x14);
-    
-    {
-      unsigned i;
-      for (i = 9; ((UInt32)1 << i) != blockSize; i++)
-        if (i == 31)
-          return S_FALSE;
-      h.BlockSizeLog = i;
-    }
-    
-    h.NumBlocks = Get16(p + 0x12);
+    // v24.09: blockSize in old HFS image can be non-power of 2.
+    const UInt32 blockSize = Get32a(p + 0x14); // drAlBlkSiz
+    if (blockSize == 0 || (blockSize & 0x1ff))
+      return S_FALSE;
+    const unsigned numBlocks = Get16a(p + 0x12); // drNmAlBlks
+    // UInt16 drFreeBks = Get16a(p + 0x22); // number of unused allocation blocks
     /*
-    we suppose that it has the follwing layout
+    we suppose that it has the following layout:
     {
-      start block with header
-      [h.NumBlocks]
-      end block with header
+      start data with header
+      blocks[h.NumBlocks]
+      end data with header (probably size_of_footer <= blockSize).
     }
     */
-    PhySize2 = ((UInt64)h.NumBlocks + 2) << h.BlockSizeLog;
-
-    UInt32 startBlock = Get16(p + 0x7C + 2);
-    UInt32 blockCount = Get16(p + 0x7C + 4);
-    SpecOffset = (UInt64)(1 + startBlock) << h.BlockSizeLog;
-    UInt64 phy = SpecOffset + ((UInt64)blockCount << h.BlockSizeLog);
+    // PhySize2 = ((UInt64)numBlocks + 2) * blockSize;
+    const unsigned sector_of_FirstBlock = Get16a(p + 0x1c); // drAlBlSt : first allocation block in volume
+    const UInt32 startBlock = Get16a(p + 0x7c + 2);
+    const UInt32 blockCount = Get16a(p + 0x7c + 4);
+    SpecOffset = (UInt32)sector_of_FirstBlock << 9; // it's 32-bit here
+    PhySize2 = SpecOffset + (UInt64)numBlocks * blockSize;
+    SpecOffset += (UInt64)startBlock * blockSize;
+    // before v24.09: // SpecOffset = (UInt64)(1 + startBlock) * blockSize;
+    const UInt64 phy = SpecOffset + (UInt64)blockCount * blockSize;
     if (PhySize2 < phy)
-      PhySize2 = phy;
-    RINOK(inStream->Seek(SpecOffset, STREAM_SEEK_SET, NULL));
-    RINOK(ReadStream_FALSE(inStream, buf, kHfsHeaderSize));
+        PhySize2 = phy;
+    UInt32 tail = 1 << 10; // at least 1 KiB tail (for footer MDB) is expected.
+    if (tail < blockSize)
+        tail = blockSize;
+    RINOK(InStream_GetSize_SeekToEnd(inStream, ArcFileSize))
+    if (ArcFileSize > PhySize2 &&
+        ArcFileSize - PhySize2 <= tail)
+    {
+      // data after blocks[h.NumBlocks] must contain another copy of MDB.
+      // In example where blockSize is not power of 2, we have
+      //   (ArcFileSize - PhySize2) < blockSize.
+      // We suppose that data after blocks[h.NumBlocks] is part of HFS archive.
+      // Maybe we should scan for footer MDB data (in last 1 KiB)?
+      PhySize2 = ArcFileSize;
+    }
+    RINOK(InStream_SeekSet(inStream, SpecOffset))
+    RINOK(ReadStream_FALSE(inStream, buf32, kHfsHeaderSize))
   }
 
-  if (p[0] != 'H' || (p[1] != '+' && p[1] != 'X'))
-    return S_FALSE;
-  h.Version = Get16(p + 2);
-  if (h.Version < 4 || h.Version > 5)
-    return S_FALSE;
-
-  // h.Attr = Get32(p + 4);
-  // h.LastMountedVersion = Get32(p + 8);
-  // h.JournalInfoBlock = Get32(p + 0xC);
-
-  h.CTime = Get32(p + 0x10);
-  h.MTime = Get32(p + 0x14);
-  // h.BackupTime = Get32(p + 0x18);
-  // h.CheckedTime = Get32(p + 0x1C);
-
-  h.NumFiles = Get32(p + 0x20);
-  h.NumFolders = Get32(p + 0x24);
-  
-  if (h.NumFolders > ((UInt32)1 << 29) ||
-      h.NumFiles > ((UInt32)1 << 30))
-    return S_FALSE;
-
-  RINOK(inStream->Seek(0, STREAM_SEEK_END, &ArcFileSize));
-
-  if (progress)
+  // HFS+ / HFSX volume header (starting from offset==1024):
   {
-    const UInt64 numFiles = (UInt64)h.NumFiles + h.NumFolders + 1;
-    RINOK(progress->SetTotal(&numFiles, NULL));
+    // v24.09: we use strict condition test for pair signature(Version):
+    // H+(4), HX(5):
+    const UInt32 sig = GetUi32a(p);
+    // h.Version = Get16(p + 2);
+    h.Is_Hsfx_ver5 = false;
+    if (sig != k_Signature_LE32_HFSP_VER4)
+    {
+      if (sig != k_Signature_LE32_HFSX_VER5)
+        return S_FALSE;
+      h.Is_Hsfx_ver5 = true;
+    }
   }
-
-  UInt32 blockSize = Get32(p + 0x28);
-
   {
+    const UInt32 blockSize = Get32a(p + 0x28);
     unsigned i;
     for (i = 9; ((UInt32)1 << i) != blockSize; i++)
       if (i == 31)
         return S_FALSE;
     h.BlockSizeLog = i;
   }
+#if 1
+  // HFS Plus DOCs: The first 1024 bytes are reserved for use as boot blocks
+  // v24.09: we don't check starting 1 KiB before old (HFS MDB) block ("BD" signture) .
+  //     but we still check starting 1 KiB before HFS+ / HFSX volume header.
+  // are there HFS+ / HFSX images with non-zero data in this reserved area?
+  {
+    for (unsigned i = 0; i < kHeaderPadSize / 4; i++)
+      if (buf32[i] != 0)
+        return S_FALSE;
+  }
+#endif
+  // h.Attr = Get32a(p + 4);
+  // h.LastMountedVersion = Get32a(p + 8);
+  // h.JournalInfoBlock = Get32a(p + 0xC);
+  h.CTime = Get32a(p + 0x10);
+  h.MTime = Get32a(p + 0x14);
+  // h.BackupTime = Get32a(p + 0x18);
+  // h.CheckedTime = Get32a(p + 0x1C);
+  h.NumFiles = Get32a(p + 0x20);
+  h.NumFolders = Get32a(p + 0x24);
+  if (h.NumFolders > ((UInt32)1 << 29) ||
+      h.NumFiles > ((UInt32)1 << 30))
+    return S_FALSE;
 
-  h.NumBlocks = Get32(p + 0x2C);
-  h.NumFreeBlocks = Get32(p + 0x30);
+  RINOK(InStream_GetSize_SeekToEnd(inStream, ArcFileSize))
+  if (progress)
+  {
+    const UInt64 numFiles = (UInt64)h.NumFiles + h.NumFolders + 1;
+    RINOK(progress->SetTotal(&numFiles, NULL))
+  }
 
+  h.NumBlocks = Get32a(p + 0x2C);
+  h.NumFreeBlocks = Get32a(p + 0x30);
   /*
   h.NextCalatlogNodeID = Get32(p + 0x40);
   h.WriteCount = Get32(p + 0x44);
@@ -1489,7 +1529,7 @@ HRESULT CDatabase::Open2(IInStream *inStream, IArchiveOpenCallback *progress)
     HeadersError = true;
   else
   {
-    HRESULT res = LoadExtentFile(extentsFork, inStream, overflowExtents);
+    const HRESULT res = LoadExtentFile(extentsFork, inStream, overflowExtents);
     if (res == S_FALSE)
       HeadersError = true;
     else if (res != S_OK)
@@ -1504,33 +1544,31 @@ HRESULT CDatabase::Open2(IInStream *inStream, IArchiveOpenCallback *progress)
   else
   {
     if (attrFork.Size != 0)
-      RINOK(LoadAttrs(attrFork, inStream, progress));
+      RINOK(LoadAttrs(attrFork, inStream, progress))
   }
   
-  RINOK(LoadCatalog(catalogFork, overflowExtents, inStream, progress));
+  RINOK(LoadCatalog(catalogFork, overflowExtents, inStream, progress))
 
-  PhySize = Header.GetPhySize();
+  // PhySize = Header.GetPhySize();
   return S_OK;
 }
 
 
 
-class CHandler:
+Z7_class_CHandler_final:
   public IInArchive,
   public IArchiveGetRawProps,
   public IInArchiveGetStream,
   public CMyUnknownImp,
   public CDatabase
 {
+  Z7_IFACES_IMP_UNK_3(
+      IInArchive,
+      IArchiveGetRawProps,
+      IInArchiveGetStream)
+
   CMyComPtr<IInStream> _stream;
-
   HRESULT GetForkStream(const CFork &fork, ISequentialInStream **stream);
-
-public:
-  MY_UNKNOWN_IMP3(IInArchive, IArchiveGetRawProps, IInArchiveGetStream)
-  INTERFACE_IInArchive(;)
-  INTERFACE_IArchiveGetRawProps(;)
-  STDMETHOD(GetStream)(UInt32 index, ISequentialInStream **stream);
 };
 
 static const Byte kProps[] =
@@ -1576,7 +1614,7 @@ static void HfsTimeToProp(UInt32 hfsTime, NWindows::NCOM::CPropVariant &prop)
   prop.SetAsTimeFrom_FT_Prec(ft, k_PropVar_TimePrec_Base);
 }
 
-STDMETHODIMP CHandler::GetArchiveProperty(PROPID propID, PROPVARIANT *value)
+Z7_COM7F_IMF(CHandler::GetArchiveProperty(PROPID propID, PROPVARIANT *value))
 {
   COM_TRY_BEGIN
   NWindows::NCOM::CPropVariant prop;
@@ -1587,7 +1625,7 @@ STDMETHODIMP CHandler::GetArchiveProperty(PROPID propID, PROPVARIANT *value)
     case kpidCharacts: MethodsMaskToProp(MethodsMask, prop); break;
     case kpidPhySize:
     {
-      UInt64 v = SpecOffset + PhySize;
+      UInt64 v = SpecOffset + Header.GetPhySize(); // PhySize;
       if (v < PhySize2)
         v = PhySize2;
       prop = v;
@@ -1624,20 +1662,20 @@ STDMETHODIMP CHandler::GetArchiveProperty(PROPID propID, PROPVARIANT *value)
   COM_TRY_END
 }
 
-STDMETHODIMP CHandler::GetNumRawProps(UInt32 *numProps)
+Z7_COM7F_IMF(CHandler::GetNumRawProps(UInt32 *numProps))
 {
   *numProps = 0;
   return S_OK;
 }
 
-STDMETHODIMP CHandler::GetRawPropInfo(UInt32 /* index */, BSTR *name, PROPID *propID)
+Z7_COM7F_IMF(CHandler::GetRawPropInfo(UInt32 /* index */, BSTR *name, PROPID *propID))
 {
   *name = NULL;
   *propID = 0;
   return S_OK;
 }
 
-STDMETHODIMP CHandler::GetParent(UInt32 index, UInt32 *parent, UInt32 *parentType)
+Z7_COM7F_IMF(CHandler::GetParent(UInt32 index, UInt32 *parent, UInt32 *parentType))
 {
   const CRef &ref = Refs[index];
   *parentType = ref.IsAltStream() ?
@@ -1647,7 +1685,7 @@ STDMETHODIMP CHandler::GetParent(UInt32 index, UInt32 *parent, UInt32 *parentTyp
   return S_OK;
 }
 
-STDMETHODIMP CHandler::GetRawProp(UInt32 index, PROPID propID, const void **data, UInt32 *dataSize, UInt32 *propType)
+Z7_COM7F_IMF(CHandler::GetRawProp(UInt32 index, PROPID propID, const void **data, UInt32 *dataSize, UInt32 *propType))
 {
   *data = NULL;
   *dataSize = 0;
@@ -1669,13 +1707,13 @@ STDMETHODIMP CHandler::GetRawProp(UInt32 index, PROPID propID, const void **data
     return S_OK;
   }
   #else
-  UNUSED_VAR(index);
-  UNUSED_VAR(propID);
+  UNUSED_VAR(index)
+  UNUSED_VAR(propID)
   #endif
   return S_OK;
 }
 
-STDMETHODIMP CHandler::GetProperty(UInt32 index, PROPID propID, PROPVARIANT *value)
+Z7_COM7F_IMF(CHandler::GetProperty(UInt32 index, PROPID propID, PROPVARIANT *value))
 {
   COM_TRY_BEGIN
   NWindows::NCOM::CPropVariant prop;
@@ -1761,19 +1799,19 @@ STDMETHODIMP CHandler::GetProperty(UInt32 index, PROPID propID, PROPVARIANT *val
   COM_TRY_END
 }
 
-STDMETHODIMP CHandler::Open(IInStream *inStream,
+Z7_COM7F_IMF(CHandler::Open(IInStream *inStream,
     const UInt64 * /* maxCheckStartPosition */,
-    IArchiveOpenCallback *callback)
+    IArchiveOpenCallback *callback))
 {
   COM_TRY_BEGIN
   Close();
-  RINOK(Open2(inStream, callback));
+  RINOK(Open2(inStream, callback))
   _stream = inStream;
   return S_OK;
   COM_TRY_END
 }
 
-STDMETHODIMP CHandler::Close()
+Z7_COM7F_IMF(CHandler::Close())
 {
   _stream.Release();
   Clear();
@@ -1782,14 +1820,14 @@ STDMETHODIMP CHandler::Close()
 
 static const UInt32 kCompressionBlockSize = 1 << 16;
 
-CDecoder::CDecoder()
+CDecoder::CDecoder(bool IsAdlerOptional)
 {
-  _zlibDecoderSpec = new NCompress::NZlib::CDecoder();
-  _zlibDecoder = _zlibDecoderSpec;
-  
-  _lzfseDecoderSpec = new NCompress::NLzfse::CDecoder();
-  _lzfseDecoder = _lzfseDecoderSpec;
-  _lzfseDecoderSpec->LzvnMode = true;
+  /* Some new hfs files contain zlib resource fork without Adler checksum.
+     We do not know how we must detect case where there is Adler
+     checksum or there is no Adler checksum.
+  */
+  _zlibDecoder->IsAdlerOptional = IsAdlerOptional;
+  _lzfseDecoder->LzvnMode = true;
 }
 
 HRESULT CDecoder::ExtractResourceFork_ZLIB(
@@ -1802,7 +1840,7 @@ HRESULT CDecoder::ExtractResourceFork_ZLIB(
   const size_t kBufSize = kCompressionBlockSize;
   _buf.Alloc(kBufSize + 0x10); // we need 1 additional bytes for uncompressed chunk header
 
-  RINOK(ReadStream_FALSE(inStream, _buf, kHeaderSize));
+  RINOK(ReadStream_FALSE(inStream, _buf, kHeaderSize))
   Byte *buf = _buf;
   const UInt32 dataPos = Get32(buf);
   const UInt32 mapPos = Get32(buf + 4);
@@ -1837,7 +1875,7 @@ HRESULT CDecoder::ExtractResourceFork_ZLIB(
 
   _tableBuf.AllocAtLeast(tableSize);
 
-  RINOK(ReadStream_FALSE(inStream, _tableBuf, tableSize));
+  RINOK(ReadStream_FALSE(inStream, _tableBuf, tableSize))
   const Byte *tableBuf = _tableBuf;
   
   UInt32 prev = 4 + tableSize;
@@ -1858,8 +1896,7 @@ HRESULT CDecoder::ExtractResourceFork_ZLIB(
   if (prev != dataSize2)
     return S_FALSE;
 
-  CBufInStream *bufInStreamSpec = new CBufInStream;
-  CMyComPtr<ISequentialInStream> bufInStream = bufInStreamSpec;
+  CMyComPtr2_Create<ISequentialInStream, CBufInStream> bufInStream;
 
   // bool padError = false;
   UInt64 outPos = 0;
@@ -1878,7 +1915,7 @@ HRESULT CDecoder::ExtractResourceFork_ZLIB(
     if (size > kCompressionBlockSize + 1)
       return S_FALSE;
 
-    RINOK(ReadStream_FALSE(inStream, buf, size));
+    RINOK(ReadStream_FALSE(inStream, buf, size))
 
     if ((buf[0] & 0xF) == 0xF)
     {
@@ -1889,17 +1926,17 @@ HRESULT CDecoder::ExtractResourceFork_ZLIB(
 
       if (outStream)
       {
-        RINOK(WriteStream(outStream, buf, blockSize));
+        RINOK(WriteStream(outStream, buf + 1, blockSize))
       }
     }
     else
     {
       const UInt64 blockSize64 = blockSize;
-      bufInStreamSpec->Init(buf, size);
-      RINOK(_zlibDecoderSpec->Code(bufInStream, outStream, NULL, &blockSize64, NULL));
-      if (_zlibDecoderSpec->GetOutputProcessedSize() != blockSize)
+      bufInStream->Init(buf, size);
+      RINOK(_zlibDecoder.Interface()->Code(bufInStream, outStream, NULL, &blockSize64, NULL))
+      if (_zlibDecoder->GetOutputProcessedSize() != blockSize)
         return S_FALSE;
-      const UInt64 inSize = _zlibDecoderSpec->GetInputProcessedSize();
+      const UInt64 inSize = _zlibDecoder->GetInputProcessedSize();
       if (inSize != size)
       {
         if (inSize > size)
@@ -1928,7 +1965,7 @@ HRESULT CDecoder::ExtractResourceFork_ZLIB(
     if ((i & 0xFF) == 0)
     {
       const UInt64 progressPos = progressStart + outPos;
-      RINOK(extractCallback->SetCompleted(&progressPos));
+      RINOK(extractCallback->SetCompleted(&progressPos))
     }
   }
 
@@ -1940,7 +1977,7 @@ HRESULT CDecoder::ExtractResourceFork_ZLIB(
   /* We check Resource Map
      Are there HFS files with another values in Resource Map ??? */
 
-  RINOK(ReadStream_FALSE(inStream, buf, mapSize));
+  RINOK(ReadStream_FALSE(inStream, buf, mapSize))
   const UInt32 types = Get16(buf + 24);
   const UInt32 names = Get16(buf + 26);
   const UInt32 numTypes = Get16(buf + 28);
@@ -1980,6 +2017,100 @@ HRESULT CDecoder::ExtractResourceFork_LZFSE(
   if (tableSize > forkSize)
     return S_FALSE;
   _tableBuf.AllocAtLeast(tableSize);
+  RINOK(ReadStream_FALSE(inStream, _tableBuf, tableSize))
+  const Byte *tableBuf = _tableBuf;
+  
+  {
+    UInt32 prev = GetUi32(tableBuf);
+    if (prev != tableSize)
+      return S_FALSE;
+    for (UInt32 i = 1; i < numBlocks2; i++)
+    {
+      const UInt32 offs = GetUi32(tableBuf + i * 4);
+      if (offs <= prev)
+        return S_FALSE;
+      prev = offs;
+    }
+    if (prev != forkSize)
+      return S_FALSE;
+  }
+
+  const size_t kBufSize = kCompressionBlockSize;
+  _buf.Alloc(kBufSize + 0x10); // we need 1 additional bytes for uncompressed chunk header
+
+  CMyComPtr2_Create<ISequentialInStream, CBufInStream> bufInStream;
+
+  UInt64 outPos = 0;
+
+  for (UInt32 i = 0; i < numBlocks; i++)
+  {
+    const UInt64 rem = unpackSize - outPos;
+    if (rem == 0)
+      return S_FALSE;
+    UInt32 blockSize = kCompressionBlockSize;
+    if (rem < kCompressionBlockSize)
+      blockSize = (UInt32)rem;
+
+    const UInt32 size =
+        GetUi32(tableBuf + i * 4 + 4) -
+        GetUi32(tableBuf + i * 4);
+
+    if (size > kCompressionBlockSize + 1)
+      return S_FALSE;
+
+    RINOK(ReadStream_FALSE(inStream, _buf, size))
+    const Byte *buf = _buf;
+
+    if (buf[0] == k_LZVN_Uncompressed_Marker)
+    {
+      if (size - 1 != blockSize)
+        return S_FALSE;
+      if (outStream)
+      {
+        RINOK(WriteStream(outStream, buf + 1, blockSize))
+      }
+    }
+    else
+    {
+      const UInt64 blockSize64 = blockSize;
+      const UInt64 packSize64 = size;
+      bufInStream->Init(buf, size);
+      RINOK(_lzfseDecoder.Interface()->Code(bufInStream, outStream, &packSize64, &blockSize64, NULL))
+      // in/out sizes were checked in Code()
+    }
+    
+    outPos += blockSize;
+    if ((i & 0xFF) == 0)
+    {
+      const UInt64 progressPos = progressStart + outPos;
+      RINOK(extractCallback->SetCompleted(&progressPos))
+    }
+  }
+
+  return S_OK;
+}
+
+
+/*
+static UInt32 GetUi24(const Byte *p)
+{
+  return p[0] + ((UInt32)p[1] << 8) + ((UInt32)p[2] << 24);
+}
+
+HRESULT CDecoder::ExtractResourceFork_ZBM(
+    ISequentialInStream *inStream, ISequentialOutStream *outStream,
+    UInt64 forkSize, UInt64 unpackSize,
+    UInt64 progressStart, IArchiveExtractCallback *extractCallback)
+{
+  const UInt32 kNumBlocksMax = (UInt32)1 << 29;
+  if (unpackSize >= (UInt64)kNumBlocksMax * kCompressionBlockSize)
+    return S_FALSE;
+  const UInt32 numBlocks = (UInt32)((unpackSize + kCompressionBlockSize - 1) / kCompressionBlockSize);
+  const UInt32 numBlocks2 = numBlocks + 1;
+  const UInt32 tableSize = (numBlocks2 << 2);
+  if (tableSize > forkSize)
+    return S_FALSE;
+  _tableBuf.AllocAtLeast(tableSize);
   RINOK(ReadStream_FALSE(inStream, _tableBuf, tableSize));
   const Byte *tableBuf = _tableBuf;
   
@@ -2001,8 +2132,8 @@ HRESULT CDecoder::ExtractResourceFork_LZFSE(
   const size_t kBufSize = kCompressionBlockSize;
   _buf.Alloc(kBufSize + 0x10); // we need 1 additional bytes for uncompressed chunk header
 
-  CBufInStream *bufInStreamSpec = new CBufInStream;
-  CMyComPtr<ISequentialInStream> bufInStream = bufInStreamSpec;
+  CBufInStream *bufInStream = new CBufInStream;
+  CMyComPtr<ISequentialInStream> bufInStream = bufInStream;
 
   UInt64 outPos = 0;
 
@@ -2019,27 +2150,112 @@ HRESULT CDecoder::ExtractResourceFork_LZFSE(
         GetUi32(tableBuf + i * 4 + 4) -
         GetUi32(tableBuf + i * 4);
 
-    if (size > kCompressionBlockSize + 1)
-      return S_FALSE;
+    // if (size > kCompressionBlockSize + 1)
+    if (size > blockSize + 1)
+      return S_FALSE; // we don't expect it, because encode will use uncompressed chunk
 
     RINOK(ReadStream_FALSE(inStream, _buf, size));
     const Byte *buf = _buf;
 
-    if (buf[0] == k_LZVN_Uncompressed_Marker)
+    // (size != 0)
+    // if (size == 0) return S_FALSE;
+
+    if (buf[0] == 0xFF) // uncompressed marker
     {
-      if (size - 1 != blockSize)
+      if (size != blockSize + 1)
         return S_FALSE;
       if (outStream)
       {
-        RINOK(WriteStream(outStream, buf, blockSize));
+        RINOK(WriteStream(outStream, buf + 1, blockSize));
       }
     }
     else
     {
-      const UInt64 blockSize64 = blockSize;
-      const UInt64 packSize64 = size;
-      bufInStreamSpec->Init(buf, size);
-      RINOK(_lzfseDecoderSpec->Code(bufInStream, outStream, &packSize64, &blockSize64, NULL));
+      if (size < 4)
+        return S_FALSE;
+      if (buf[0] != 'Z' ||
+          buf[1] != 'B' ||
+          buf[2] != 'M' ||
+          buf[3] != 9)
+        return S_FALSE;
+      // for debug:
+      unsigned packPos = 4;
+      unsigned unpackPos = 0;
+      unsigned packRem = size - packPos;
+      for (;;)
+      {
+        if (packRem < 6)
+          return S_FALSE;
+        const UInt32 packSize = GetUi24(buf + packPos);
+        const UInt32 chunkUnpackSize = GetUi24(buf + packPos + 3);
+        if (packSize < 6)
+          return S_FALSE;
+        if (packSize > packRem)
+          return S_FALSE;
+        if (chunkUnpackSize > blockSize - unpackPos)
+          return S_FALSE;
+        packPos += packSize;
+        packRem -= packSize;
+        unpackPos += chunkUnpackSize;
+        if (packSize == 6)
+        {
+          if (chunkUnpackSize != 0)
+            return S_FALSE;
+          break;
+        }
+        if (packSize >= chunkUnpackSize + 6)
+        {
+          if (packSize > chunkUnpackSize + 6)
+            return S_FALSE;
+          // uncompressed chunk;
+        }
+        else
+        {
+          // compressed chunk
+          const Byte *t = buf + packPos - packSize + 6;
+          UInt32 r = packSize - 6;
+          if (r < 9)
+            return S_FALSE;
+          const UInt32 v0 = GetUi24(t);
+          const UInt32 v1 = GetUi24(t + 3);
+          const UInt32 v2 = GetUi24(t + 6);
+          if (v0 > v1 || v1 > v2 || v2 > packSize)
+            return S_FALSE;
+          // here we need the code that will decompress ZBM chunk
+        }
+      }
+
+      if (unpackPos != blockSize)
+        return S_FALSE;
+
+      UInt32 size1 = size;
+      if (size1 > kCompressionBlockSize)
+      {
+        size1 = kCompressionBlockSize;
+        // return S_FALSE;
+      }
+      if (outStream)
+      {
+        RINOK(WriteStream(outStream, buf, size1))
+
+        const UInt32 kTempSize = 1 << 16;
+        Byte temp[kTempSize];
+        memset(temp, 0, kTempSize);
+
+        for (UInt32 k = size1; k < kCompressionBlockSize; k++)
+        {
+          UInt32 cur = kCompressionBlockSize - k;
+          if (cur > kTempSize)
+            cur = kTempSize;
+          RINOK(WriteStream(outStream, temp, cur))
+          k += cur;
+        }
+      }
+
+      // const UInt64 blockSize64 = blockSize;
+      // const UInt64 packSize64 = size;
+      // bufInStream->Init(buf, size);
+      // RINOK(_zbmDecoderSpec->Code(bufInStream, outStream, &packSize64, &blockSize64, NULL));
       // in/out sizes were checked in Code()
     }
     
@@ -2053,7 +2269,7 @@ HRESULT CDecoder::ExtractResourceFork_LZFSE(
 
   return S_OK;
 }
-
+*/
 
 HRESULT CDecoder::Extract(
     ISequentialInStream *inStreamFork, ISequentialOutStream *realOutStream,
@@ -2070,7 +2286,7 @@ HRESULT CDecoder::Extract(
     const size_t packSize = data->Size() - compressHeader.DataPos;
     if (realOutStream)
     {
-      RINOK(WriteStream(realOutStream, *data + compressHeader.DataPos, packSize));
+      RINOK(WriteStream(realOutStream, *data + compressHeader.DataPos, packSize))
     }
     opRes = NExtract::NOperationResult::kOK;
     return S_OK;
@@ -2079,24 +2295,23 @@ HRESULT CDecoder::Extract(
   if (compressHeader.Method == kMethod_ZLIB_ATTR ||
       compressHeader.Method == kMethod_LZVN_ATTR)
   {
-    CBufInStream *bufInStreamSpec = new CBufInStream;
-    CMyComPtr<ISequentialInStream> bufInStream = bufInStreamSpec;
+    CMyComPtr2_Create<ISequentialInStream, CBufInStream> bufInStream;
     const size_t packSize = data->Size() - compressHeader.DataPos;
-    bufInStreamSpec->Init(*data + compressHeader.DataPos, packSize);
+    bufInStream->Init(*data + compressHeader.DataPos, packSize);
     
     if (compressHeader.Method == kMethod_ZLIB_ATTR)
     {
-      const HRESULT hres = _zlibDecoder->Code(bufInStream, realOutStream,
+      const HRESULT hres = _zlibDecoder.Interface()->Code(bufInStream, realOutStream,
           NULL, &compressHeader.UnpackSize, NULL);
       if (hres == S_OK)
-        if (_zlibDecoderSpec->GetOutputProcessedSize() == compressHeader.UnpackSize
-            && _zlibDecoderSpec->GetInputProcessedSize() == packSize)
+        if (_zlibDecoder->GetOutputProcessedSize() == compressHeader.UnpackSize
+            && _zlibDecoder->GetInputProcessedSize() == packSize)
           opRes = NExtract::NOperationResult::kOK;
       return hres;
     }
     {
       const UInt64 packSize64 = packSize;
-      const HRESULT hres = _lzfseDecoder->Code(bufInStream, realOutStream,
+      const HRESULT hres = _lzfseDecoder.Interface()->Code(bufInStream, realOutStream,
           &packSize64, &compressHeader.UnpackSize, NULL);
       if (hres == S_OK)
       {
@@ -2114,6 +2329,8 @@ HRESULT CDecoder::Extract(
         inStreamFork, realOutStream,
         forkSize, compressHeader.UnpackSize,
         progressStart, extractCallback);
+    // for debug:
+    // hres = NCompress::CopyStream(inStreamFork, realOutStream, NULL);
   }
   else if (compressHeader.Method == NHfs::kMethod_LZVN_RSRC)
   {
@@ -2122,6 +2339,15 @@ HRESULT CDecoder::Extract(
         forkSize, compressHeader.UnpackSize,
         progressStart, extractCallback);
   }
+  /*
+  else if (compressHeader.Method == NHfs::kMethod_ZBM_RSRC)
+  {
+    hres = ExtractResourceFork_ZBM(
+        inStreamFork, realOutStream,
+        forkSize, compressHeader.UnpackSize,
+        progressStart, extractCallback);
+  }
+  */
   else
   {
     opRes = NExtract::NOperationResult::kUnsupportedMethod;
@@ -2134,8 +2360,8 @@ HRESULT CDecoder::Extract(
 }
 
 
-STDMETHODIMP CHandler::Extract(const UInt32 *indices, UInt32 numItems,
-    Int32 testMode, IArchiveExtractCallback *extractCallback)
+Z7_COM7F_IMF(CHandler::Extract(const UInt32 *indices, UInt32 numItems,
+    Int32 testMode, IArchiveExtractCallback *extractCallback))
 {
   COM_TRY_BEGIN
   const bool allFilesMode = (numItems == (UInt32)(Int32)-1);
@@ -2150,44 +2376,47 @@ STDMETHODIMP CHandler::Extract(const UInt32 *indices, UInt32 numItems,
     const CRef &ref = Refs[allFilesMode ? i : indices[i]];
     totalSize += Get_UnpackSize_of_Ref(ref);
   }
-  RINOK(extractCallback->SetTotal(totalSize));
+  RINOK(extractCallback->SetTotal(totalSize))
 
   UInt64 currentTotalSize = 0, currentItemSize = 0;
   
   const size_t kBufSize = kCompressionBlockSize;
   CByteBuffer buf(kBufSize + 0x10); // we need 1 additional bytes for uncompressed chunk header
 
-  CDecoder decoder;
+  // there are hfs without adler in zlib.
+  CDecoder decoder(true); // IsAdlerOptional
 
   for (i = 0;; i++, currentTotalSize += currentItemSize)
   {
-    RINOK(extractCallback->SetCompleted(&currentTotalSize));
-    if (i == numItems)
+    RINOK(extractCallback->SetCompleted(&currentTotalSize))
+    if (i >= numItems)
       break;
-    UInt32 index = allFilesMode ? i : indices[i];
+    const UInt32 index = allFilesMode ? i : indices[i];
     const CRef &ref = Refs[index];
     const CItem &item = Items[ref.ItemIndex];
     currentItemSize = Get_UnpackSize_of_Ref(ref);
 
+    int opRes;
+   {
     CMyComPtr<ISequentialOutStream> realOutStream;
-    Int32 askMode = testMode ?
+    const Int32 askMode = testMode ?
         NExtract::NAskMode::kTest :
         NExtract::NAskMode::kExtract;
-    RINOK(extractCallback->GetStream(index, &realOutStream, askMode));
+    RINOK(extractCallback->GetStream(index, &realOutStream, askMode))
 
     if (ref.IsItem() && item.IsDir())
     {
-      RINOK(extractCallback->PrepareOperation(askMode));
-      RINOK(extractCallback->SetOperationResult(NExtract::NOperationResult::kOK));
+      RINOK(extractCallback->PrepareOperation(askMode))
+      RINOK(extractCallback->SetOperationResult(NExtract::NOperationResult::kOK))
       continue;
     }
     if (!testMode && !realOutStream)
       continue;
     
-    RINOK(extractCallback->PrepareOperation(askMode));
+    RINOK(extractCallback->PrepareOperation(askMode))
     
     UInt64 pos = 0;
-    int opRes = NExtract::NOperationResult::kDataError;
+    opRes = NExtract::NOperationResult::kDataError;
     const CFork *fork = NULL;
     
     if (ref.AttrIndex >= 0)
@@ -2203,7 +2432,7 @@ STDMETHODIMP CHandler::Extract(const UInt32 *indices, UInt32 numItems,
           RINOK(WriteStream(realOutStream,
               // AttrBuf + attr.Pos, attr.Size
               attr.Data, attr.Data.Size()
-              ));
+              ))
         }
       }
     }
@@ -2258,7 +2487,7 @@ STDMETHODIMP CHandler::Extract(const UInt32 *indices, UInt32 numItems,
           if (fork->Size == pos)
             break;
           const CExtent &e = fork->Extents[extentIndex];
-          RINOK(_stream->Seek(SpecOffset + ((UInt64)e.Pos << Header.BlockSizeLog), STREAM_SEEK_SET, NULL));
+          RINOK(InStream_SeekSet(_stream, SpecOffset + ((UInt64)e.Pos << Header.BlockSizeLog)))
           UInt64 extentRem = (UInt64)e.NumBlocks << Header.BlockSizeLog;
           while (extentRem != 0)
           {
@@ -2275,7 +2504,7 @@ STDMETHODIMP CHandler::Extract(const UInt32 *indices, UInt32 numItems,
               cur = (size_t)rem;
             if (cur > extentRem)
               cur = (size_t)extentRem;
-            RINOK(ReadStream(_stream, buf, &cur));
+            RINOK(ReadStream(_stream, buf, &cur))
             if (cur == 0)
             {
               opRes = NExtract::NOperationResult::kDataError;
@@ -2283,26 +2512,26 @@ STDMETHODIMP CHandler::Extract(const UInt32 *indices, UInt32 numItems,
             }
             if (realOutStream)
             {
-              RINOK(WriteStream(realOutStream, buf, cur));
+              RINOK(WriteStream(realOutStream, buf, cur))
             }
             pos += cur;
             extentRem -= cur;
             const UInt64 processed = currentTotalSize + pos;
-            RINOK(extractCallback->SetCompleted(&processed));
+            RINOK(extractCallback->SetCompleted(&processed))
           }
         }
         if (extentIndex != fork->Extents.Size() || fork->Size != pos)
           opRes = NExtract::NOperationResult::kDataError;
       }
     }
-    realOutStream.Release();
-    RINOK(extractCallback->SetOperationResult(opRes));
+   }
+    RINOK(extractCallback->SetOperationResult(opRes))
   }
   return S_OK;
   COM_TRY_END
 }
 
-STDMETHODIMP CHandler::GetNumberOfItems(UInt32 *numItems)
+Z7_COM7F_IMF(CHandler::GetNumberOfItems(UInt32 *numItems))
 {
   *numItems = Refs.Size();
   return S_OK;
@@ -2310,13 +2539,13 @@ STDMETHODIMP CHandler::GetNumberOfItems(UInt32 *numItems)
 
 HRESULT CHandler::GetForkStream(const CFork &fork, ISequentialInStream **stream)
 {
-  *stream = 0;
+  *stream = NULL;
   
   if (!fork.IsOk(Header.BlockSizeLog))
     return S_FALSE;
 
-  CExtentsStream *extentStreamSpec = new CExtentsStream();
-  CMyComPtr<ISequentialInStream> extentStream = extentStreamSpec;
+  CMyComPtr2<ISequentialInStream, CExtentsStream> extentStream;
+  extentStream.Create_if_Empty();
 
   UInt64 rem = fork.Size;
   UInt64 virt = 0;
@@ -2334,29 +2563,29 @@ HRESULT CHandler::GetForkStream(const CFork &fork, ISequentialInStream **stream)
         return S_FALSE;
     }
     CSeekExtent se;
-    se.Phy = (UInt64)e.Pos << Header.BlockSizeLog;
+    se.Phy = SpecOffset + ((UInt64)e.Pos << Header.BlockSizeLog);
     se.Virt = virt;
     virt += cur;
     rem -= cur;
-    extentStreamSpec->Extents.Add(se);
+    extentStream->Extents.Add(se);
   }
   
   if (rem != 0)
     return S_FALSE;
   
   CSeekExtent se;
-  se.Phy = 0;
+  se.Phy = 0; // = SpecOffset ?
   se.Virt = virt;
-  extentStreamSpec->Extents.Add(se);
-  extentStreamSpec->Stream = _stream;
-  extentStreamSpec->Init();
+  extentStream->Extents.Add(se);
+  extentStream->Stream = _stream;
+  extentStream->Init();
   *stream = extentStream.Detach();
   return S_OK;
 }
 
-STDMETHODIMP CHandler::GetStream(UInt32 index, ISequentialInStream **stream)
+Z7_COM7F_IMF(CHandler::GetStream(UInt32 index, ISequentialInStream **stream))
 {
-  *stream = 0;
+  *stream = NULL;
 
   const CRef &ref = Refs[index];
   const CFork *fork = NULL;
@@ -2388,7 +2617,7 @@ static const Byte k_Signature[] = {
     4, 'H', 'X', 0, 5 };
 
 REGISTER_ARC_I(
-  "HFS", "hfs hfsx", 0, 0xE3,
+  "HFS", "hfs hfsx", NULL, 0xE3,
   k_Signature,
   kHeaderPadSize,
   NArcInfoFlags::kMultiSignature,

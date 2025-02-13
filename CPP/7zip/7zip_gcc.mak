@@ -14,13 +14,19 @@ MY_ASM = asmc
 endif
 endif
 
+ifndef RC
+RC=windres.exe --target=pe-x86-64
+RC=windres.exe -F pe-i386
+RC=windres.exe
+endif
+
 
 PROGPATH = $(O)/$(PROG)
 PROGPATH_STATIC = $(O)/$(PROG)s
 
 
 ifneq ($(CC), xlc)
-CFLAGS_WARN_WALL = -Wall -Werror -Wextra
+CFLAGS_WARN_WALL = -Werror -Wall -Wextra
 endif
 
 ifndef CFLAGS_OPT
@@ -28,13 +34,36 @@ CFLAGS_OPT = -O2
 endif
 
 # for object file
+# -Wa,-aln=test.s
+# -save-temps
+FLAGS_BASE = -mbranch-protection=standard  -march=armv8.5-a
+FLAGS_BASE = -mbranch-protection=standard
+FLAGS_BASE =
+# FLAGS_BASE = -DZ7_NO_UNICODE
+
 CFLAGS_BASE_LIST = -c
+
+
+#DEBUG_BUILD=1
+
+ifdef DEBUG_BUILD
+CFLAGS_DEBUG = -g
+else
+CFLAGS_DEBUG = -DNDEBUG
+ifneq ($(CC), $(CROSS_COMPILE)clang)
+LFLAGS_STRIP = -s
+endif
+endif
+
 # CFLAGS_BASE_LIST = -S
 CFLAGS_BASE = $(CFLAGS_OPT) $(CFLAGS_BASE_LIST) $(CFLAGS_WARN_WALL) $(CFLAGS_WARN) \
- -DNDEBUG -D_REENTRANT -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE \
+ $(CFLAGS_DEBUG) -D_REENTRANT -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE \
  -fPIC
 
-# -D_7ZIP_AFFINITY_DISABLE
+FLAGS_FLTO = -ffunction-sections
+FLAGS_FLTO = -flto
+FLAGS_FLTO = $(FLAGS_BASE)
+# -DZ7_AFFINITY_DISABLE
 
 
 ifdef SystemDrive
@@ -62,7 +91,7 @@ endif
 endif
 endif
 
-LDFLAGS_STATIC = -DNDEBUG $(LDFLAGS_STATIC_2)
+LDFLAGS_STATIC = $(CFLAGS_DEBUG) $(LDFLAGS_STATIC_2) $(LDFLAGS_STATIC_3)
 
 ifndef O
   ifdef IS_MINGW
@@ -89,8 +118,8 @@ endif
 else
 
 LDFLAGS = $(LDFLAGS_STATIC)
-# -s is not required for clang, do we need it for GGC ???
-# -s
+# -z force-bti
+# -s is not required for clang, do we need it for GCC ???
 
 #-static -static-libgcc -static-libstdc++
 
@@ -119,10 +148,11 @@ MY_MKDIR=mkdir
 DEL_OBJ_EXE = -$(RM) $(O)\*.o $(O)\$(PROG).exe $(O)\$(PROG).dll
 endif
 
-LIB2_GUI = -lOle32 -lGdi32 -lComctl32 -lComdlg32 $(LIB_HTMLHELP)
+LIB2_GUI = -lOle32 -lGdi32 -lComctl32 -lComdlg32 -lShell32 $(LIB_HTMLHELP)
 LIB2 = -loleaut32 -luuid -ladvapi32 -lUser32 $(LIB2_GUI)
 
-CXXFLAGS_EXTRA = -DUNICODE -D_UNICODE
+# v24.00: -DUNICODE and -D_UNICODE are defined in precompilation header files
+# CXXFLAGS_EXTRA = -DUNICODE -D_UNICODE
 # -Wno-delete-non-virtual-dtor
 
  
@@ -132,11 +162,12 @@ RM = rm -f
 MY_MKDIR=mkdir -p
 DEL_OBJ_EXE = -$(RM) $(PROGPATH) $(PROGPATH_STATIC) $(OBJS)
 
-# CFLAGS_BASE := $(CFLAGS_BASE) -D_7ZIP_ST
+# CFLAGS_BASE := $(CFLAGS_BASE) -DZ7_ST
 # CXXFLAGS_EXTRA = -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
 
 # LOCAL_LIBS=-lpthread
 # LOCAL_LIBS_DLL=$(LOCAL_LIBS) -ldl
+LIB2 = -lpthread
 LIB2 = -lpthread -ldl
 
 
@@ -144,7 +175,7 @@ endif
 
 
 
-CFLAGS = $(MY_ARCH_2) $(LOCAL_FLAGS) $(CFLAGS_BASE2) $(CFLAGS_BASE) $(CC_SHARED) -o $@
+CFLAGS = $(MY_ARCH_2) $(LOCAL_FLAGS) $(CFLAGS_BASE2) $(CFLAGS_BASE) $(FLAGS_FLTO) $(CC_SHARED) -o $@
 
 
 ifdef IS_MINGW
@@ -176,7 +207,7 @@ endif  # IS_MINGW
 
 
 ifdef USE_ASM
-CONSOLE_ASM_FLAGS=-D_7ZIP_ASM
+CONSOLE_ASM_FLAGS=-DZ7_7ZIP_ASM
 else
 CONSOLE_ASM_FLAGS=
 endif
@@ -185,7 +216,7 @@ CXX_WARN_FLAGS =
 #-Wno-invalid-offsetof
 #-Wno-reorder
 
-CXXFLAGS = $(MY_ARCH_2) $(LOCAL_FLAGS) $(CXXFLAGS_BASE2) $(CFLAGS_BASE) $(CXXFLAGS_EXTRA) $(CC_SHARED) -o $@ $(CXX_WARN_FLAGS)
+CXXFLAGS = $(MY_ARCH_2) $(LOCAL_FLAGS) $(CXXFLAGS_BASE2) $(CFLAGS_BASE) $(FLAGS_FLTO) $(CXXFLAGS_EXTRA) $(CC_SHARED) $(CXX_WARN_FLAGS) $(CXX_STD_FLAGS) $(CXX_INCLUDE_FLAGS) -o $@
 
 STATIC_TARGET=
 ifdef COMPL_STATIC
@@ -195,10 +226,43 @@ endif
 
 all: $(O) $(PROGPATH) $(STATIC_TARGET)
 
+# we need $(O) as order-only-prerequisites:
+$(OBJS): | $(O)
+
 $(O):
 	$(MY_MKDIR) $(O)
 
-LFLAGS_ALL = -s $(MY_ARCH_2) $(LDFLAGS) $(LD_arch) $(OBJS) $(MY_LIBS) $(LIB2)
+# LDFLAGS3= -flto
+# LDFLAGS3= -Wl,--gc-sections
+# -Wl,--print-gc-sections
+
+ifndef IS_MINGW
+
+# LFLAGS_NOEXECSTACK=
+
+ifdef Z7_USE_OS_UNAME_FOR_NOEXECSTACK
+Z7_OS := $(shell uname)
+show_os:
+	echo $(Z7_OS)
+
+# ifeq ($(CXX), $(CROSS_COMPILE)g++)
+ifeq ($(Z7_OS), Linux)
+LFLAGS_NOEXECSTACK ?= -z noexecstack
+endif
+
+else
+LFLAGS_NOEXECSTACK ?= $(shell echo 'int main(){return 0;}' | $(CC) $(MY_ARCH_2) -z noexecstack -o /dev/null -x c - 2>/dev/null && echo -z noexecstack || echo)
+endif
+
+endif
+
+
+LFLAGS_ALL = $(LFLAGS_STRIP) $(MY_ARCH_2) $(LDFLAGS) $(FLAGS_FLTO) $(LD_arch) $(LFLAGS_NOEXECSTACK) $(OBJS) $(MY_LIBS) $(LIB2)
+
+# -s : GCC : Remove all symbol table and relocation information from the executable.
+# -s : CLANG : unsupported
+# -s
+
 $(PROGPATH): $(OBJS)
 	$(CXX) -o $(PROGPATH) $(LFLAGS_ALL)
 
@@ -212,7 +276,14 @@ $(PROGPATH_STATIC): $(OBJS)
 
 ifndef NO_DEFAULT_RES
 $O/resource.o: resource.rc
-	windres.exe $(RFLAGS) resource.rc $O/resource.o
+	$(RC) $(RFLAGS) resource.rc $@
+
+# windres.exe : in old version mingw:
+# $(RFLAGS) resource.rc $O/resource.o
+# windres.exe : in new version mingw:
+# $(RC) $(RFLAGS) resource.rc -FO $@
+
+
 endif
 
 $O/LzmaAlone.o: LzmaAlone.cpp
@@ -236,6 +307,8 @@ $O/Lang.o: ../../../Common/Lang.cpp
 $O/ListFileUtils.o: ../../../Common/ListFileUtils.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/LzFindPrepare.o: ../../../Common/LzFindPrepare.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/Md5Reg.o: ../../../Common/Md5Reg.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/MyMap.o: ../../../Common/MyMap.cpp
 	$(CXX) $(CXXFLAGS) $<
@@ -261,6 +334,12 @@ $O/Sha256Prepare.o: ../../../Common/Sha256Prepare.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/Sha256Reg.o: ../../../Common/Sha256Reg.cpp
 	$(CXX) $(CXXFLAGS) $<
+$O/Sha3Reg.o: ../../../Common/Sha3Reg.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/Sha512Prepare.o: ../../../Common/Sha512Prepare.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/Sha512Reg.o: ../../../Common/Sha512Reg.cpp
+	$(CXX) $(CXXFLAGS) $<
 $O/StdInStream.o: ../../../Common/StdInStream.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/StdOutStream.o: ../../../Common/StdOutStream.cpp
@@ -278,6 +357,8 @@ $O/Wildcard.o: ../../../Common/Wildcard.cpp
 $O/XzCrc64Init.o: ../../../Common/XzCrc64Init.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/XzCrc64Reg.o: ../../../Common/XzCrc64Reg.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/Xxh64Reg.o: ../../../Common/Xxh64Reg.cpp
 	$(CXX) $(CXXFLAGS) $<
 
 
@@ -389,6 +470,8 @@ $O/MethodId.o: ../../Common/MethodId.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/MethodProps.o: ../../Common/MethodProps.cpp
 	$(CXX) $(CXXFLAGS) $<
+$O/MultiOutStream.o: ../../Common/MultiOutStream.cpp
+	$(CXX) $(CXXFLAGS) $<
 $O/OffsetStream.o: ../../Common/OffsetStream.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/OutBuffer.o: ../../Common/OutBuffer.cpp
@@ -463,6 +546,8 @@ $O/IhexHandler.o: ../../Archive/IhexHandler.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/LpHandler.o: ../../Archive/LpHandler.cpp
 	$(CXX) $(CXXFLAGS) $<
+$O/LvmHandler.o: ../../Archive/LvmHandler.cpp
+	$(CXX) $(CXXFLAGS) $<
 $O/LzhHandler.o: ../../Archive/LzhHandler.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/LzmaHandler.o: ../../Archive/LzmaHandler.cpp
@@ -508,6 +593,8 @@ $O/XarHandler.o: ../../Archive/XarHandler.cpp
 $O/XzHandler.o: ../../Archive/XzHandler.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/ZHandler.o: ../../Archive/ZHandler.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/ZstdHandler.o: ../../Archive/ZstdHandler.cpp
 	$(CXX) $(CXXFLAGS) $<
 
 
@@ -615,7 +702,7 @@ $O/WimRegister.o: ../../Archive/Wim/WimRegister.cpp
 $O/ZipAddCommon.o: ../../Archive/Zip/ZipAddCommon.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/ZipHandler.o: ../../Archive/Zip/ZipHandler.cpp
-	$(CXX) $(CXXFLAGS) $<
+	$(CXX) $(CXXFLAGS) $(ZIP_FLAGS) $<
 $O/ZipHandlerOut.o: ../../Archive/Zip/ZipHandlerOut.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/ZipIn.o: ../../Archive/Zip/ZipIn.cpp
@@ -735,6 +822,10 @@ $O/ZDecoder.o: ../../Compress/ZDecoder.cpp
 $O/ZlibDecoder.o: ../../Compress/ZlibDecoder.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/ZlibEncoder.o: ../../Compress/ZlibEncoder.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/ZstdDecoder.o: ../../Compress/ZstdDecoder.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/ZstdRegister.o: ../../Compress/ZstdRegister.cpp
 	$(CXX) $(CXXFLAGS) $<
 
 
@@ -967,6 +1058,8 @@ $O/App.o: ../../UI/FileManager/App.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/BrowseDialog.o: ../../UI/FileManager/BrowseDialog.cpp
 	$(CXX) $(CXXFLAGS) $<
+$O/BrowseDialog2.o: ../../UI/FileManager/BrowseDialog2.cpp
+	$(CXX) $(CXXFLAGS) $<
 $O/ClassDefs.o: ../../UI/FileManager/ClassDefs.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/ComboDialog.o: ../../UI/FileManager/ComboDialog.cpp
@@ -1006,6 +1099,8 @@ $O/LangUtils.o: ../../UI/FileManager/LangUtils.cpp
 $O/LinkDialog.o: ../../UI/FileManager/LinkDialog.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/ListViewDialog.o: ../../UI/FileManager/ListViewDialog.cpp
+	$(CXX) $(CXXFLAGS) $<
+$O/MemDialog.o: ../../UI/FileManager/MemDialog.cpp
 	$(CXX) $(CXXFLAGS) $<
 $O/MenuPage.o: ../../UI/FileManager/MenuPage.cpp
 	$(CXX) $(CXXFLAGS) $<
@@ -1167,6 +1262,8 @@ $O/Lzma2Enc.o: ../../../../C/Lzma2Enc.c
 	$(CC) $(CFLAGS) $<
 $O/LzmaLib.o: ../../../../C/LzmaLib.c
 	$(CC) $(CFLAGS) $<
+$O/Md5.o: ../../../../C/Md5.c
+	$(CC) $(CFLAGS) $<
 $O/MtCoder.o: ../../../../C/MtCoder.c
 	$(CC) $(CFLAGS) $<
 $O/MtDec.o: ../../../../C/MtDec.c
@@ -1189,12 +1286,29 @@ $O/Sha1.o: ../../../../C/Sha1.c
 	$(CC) $(CFLAGS) $<
 $O/Sha256.o: ../../../../C/Sha256.c
 	$(CC) $(CFLAGS) $<
+$O/Sha3.o: ../../../../C/Sha3.c
+	$(CC) $(CFLAGS) $<
+$O/Sha512.o: ../../../../C/Sha512.c
+	$(CC) $(CFLAGS) $<
+$O/Sha512Opt.o: ../../../../C/Sha512Opt.c
+	$(CC) $(CFLAGS) $<
 $O/Sort.o: ../../../../C/Sort.c
+	$(CC) $(CFLAGS) $<
+$O/SwapBytes.o: ../../../../C/SwapBytes.c
+	$(CC) $(CFLAGS) $<
+$O/Xxh64.o: ../../../../C/Xxh64.c
 	$(CC) $(CFLAGS) $<
 $O/Xz.o: ../../../../C/Xz.c
 	$(CC) $(CFLAGS) $<
 $O/XzCrc64.o: ../../../../C/XzCrc64.c
 	$(CC) $(CFLAGS) $<
+$O/XzDec.o: ../../../../C/XzDec.c
+	$(CC) $(CFLAGS) $<
+$O/XzEnc.o: ../../../../C/XzEnc.c
+	$(CC) $(CFLAGS) $<
+$O/XzIn.o: ../../../../C/XzIn.c
+	$(CC) $(CFLAGS) $<
+
 
 ifdef USE_ASM
 ifdef IS_X64
@@ -1259,11 +1373,11 @@ endif
 
 ifdef IS_ARM64
 $O/LzmaDecOpt.o: ../../../../Asm/arm64/LzmaDecOpt.S ../../../../Asm/arm64/7zAsm.S
-	$(CC) $(CFLAGS) $<
+	$(CC) $(CFLAGS) $(ASM_FLAGS) $<
 endif
 
 $O/LzmaDec.o: ../../../../C/LzmaDec.c
-	$(CC) $(CFLAGS) -D_LZMA_DEC_OPT $<
+	$(CC) $(CFLAGS) -DZ7_LZMA_DEC_OPT $<
 
 else
 
@@ -1273,13 +1387,6 @@ $O/LzmaDec.o: ../../../../C/LzmaDec.c
 endif
 
 
-
-$O/XzDec.o: ../../../../C/XzDec.c
-	$(CC) $(CFLAGS) $<
-$O/XzEnc.o: ../../../../C/XzEnc.c
-	$(CC) $(CFLAGS) $<
-$O/XzIn.o: ../../../../C/XzIn.c
-	$(CC) $(CFLAGS) $<
 
 
 ifdef BROTLI_OBJS
