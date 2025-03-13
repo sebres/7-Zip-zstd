@@ -83,4 +83,11 @@ HRESULT COpenArchiveCallback::Open_CryptoGetTextPassword(BSTR *password)
   return StringToBstr(Password, password);
   // COM_TRY_END
 }
+
+HRESULT COpenArchiveCallback::Open_GetPasswordIfAny(bool &passwordIsDefined, UString &password)
+{
+  passwordIsDefined = PasswordIsDefined;
+  password = Password;
+  return S_OK;
+}
 #endif

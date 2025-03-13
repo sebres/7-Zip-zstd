@@ -11,7 +11,9 @@
 
 namespace NCrypto {
 
-STDMETHODIMP CAesOutStream::Write(const void *data, UInt32 size, UInt32 *processed)
+#ifndef Z7_EXTRACT_ONLY
+
+Z7_COM7F_IMF(CAesOutStream::Write(const void *data, UInt32 size, UInt32 *processed))
 {
   UInt32 encSize = size;
   // not enough data ?
@@ -68,9 +70,13 @@ HRESULT CAesOutStream::Init(ISequentialOutStream *outStream, UString &password)
   // create AES encoder:
   if (_aesFilter)
     delete _aesFilter;
+  #if !BMODE_CTR
+  _aesFilter = new CAesCbcEncoder(kKeySize);
+  #else
+  // currently not implemented
   _aesFilter = new CAesCoder(true, kKeySize, BMODE_CTR); // AES256-CBC or AES256-CTR (currently not compatible to stdandard CTR)
+  #endif
   //_aesFilter->SetFunctions(1); // to force software AES encryption
-  //_aesFilter = new CAesCbcEncoder(kKeySize);
 
   // init filter:
   RINOK(_aesFilter->SetKey(_Key, sizeof(_Key)));
@@ -85,6 +91,8 @@ CAesOutStream::~CAesOutStream()
   }
 }
 
+#endif
+
 // ----------------------------------
 
 HRESULT CAesInStream::ReadAhead(void *data, UInt32 size, UInt32 *processedSize)
@@ -96,7 +104,7 @@ HRESULT CAesInStream::ReadAhead(void *data, UInt32 size, UInt32 *processedSize)
   }
   if (!Eof) {
     if (!_raheadBuf)
-      _raheadBuf = new CAlignedBuffer(AES_BLOCK_SIZE * 2);
+      _raheadBuf = new CAlignedBuffer1(AES_BLOCK_SIZE * 2);
     s = size % AES_BLOCK_SIZE;
     s = !s ? size : size + AES_BLOCK_SIZE - s;
     Byte *buf = (Byte *)*_raheadBuf + _raheadSize;
@@ -121,7 +129,7 @@ HRESULT CAesInStream::ReadAhead(void *data, UInt32 size, UInt32 *processedSize)
   return S_OK;
 };
 
-STDMETHODIMP CAesInStream::Read(void *data, UInt32 size, UInt32 *processedSize)
+Z7_COM7F_IMF(CAesInStream::Read(void *data, UInt32 size, UInt32 *processedSize))
 {
   HRESULT res = S_OK;
   UInt32 procSize = 0, toRead;
@@ -210,9 +218,13 @@ HRESULT CAesInStream::Init(ISequentialInStream *inStream, UString &password)
   // create AES encoder:
   if (_aesFilter)
     delete _aesFilter;
+  #if !BMODE_CTR
+  _aesFilter = new CAesCbcDecoder(kKeySize);
+  #else
+  // currently not implemented
   _aesFilter = new CAesCoder(false, kKeySize, BMODE_CTR); // AES256-CBC or AES256-CTR (currently not compatible to stdandard CTR)
+  #endif
   //_aesFilter->SetFunctions(1); // to force software AES encryption
-  //_aesFilter = new CAesCbcDecoder(kKeySize);
 
   // init filter:
   RINOK(_aesFilter->SetKey(_Key, sizeof(_Key)));

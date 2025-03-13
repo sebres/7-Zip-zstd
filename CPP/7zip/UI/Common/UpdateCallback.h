@@ -47,6 +47,7 @@ Z7_PURE_INTERFACES_BEGIN
   /* virtual HRESULT SetPassword(const UString &password) x */ \
   virtual HRESULT CryptoGetTextPassword2(Int32 *passwordIsDefined, BSTR *password) x \
   virtual HRESULT CryptoGetTextPassword(BSTR *password) x \
+  virtual HRESULT CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password) x \
   virtual HRESULT ShowDeleteFile(const wchar_t *name, bool isDir) x \
 
   /*
@@ -137,7 +138,6 @@ public:
   bool Need_ArcMTime_Report;
   bool ArcMTime_WasReported;
   */
-  STDMETHOD(CryptoGetPasswordIfAny)(bool& passwordIsDefined, UString& password);
 
   CRecordVector<UInt32> _openFiles_Indexes;
   FStringVector _openFiles_Paths;

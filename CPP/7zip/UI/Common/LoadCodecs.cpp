@@ -714,7 +714,7 @@ void CCodecs::UpdateCaseSensitive()
   FOR_VECTOR(i, Libs)
   {
     const CCodecLib &lib = Libs[i];
-    MY_GET_FUNC_LOC (setCaseSensitive, Func_SetCaseSensitive, lib.Lib.GetProc("SetCaseSensitive"));
+    MY_GET_FUNC_LOC (setCaseSensitive, Func_SetCaseSensitive, lib.Lib, "SetCaseSensitive");
     if (setCaseSensitive)
       setCaseSensitive(CaseSensitive ? 1 : 0);
   }

@@ -531,7 +531,7 @@ Z7_COM7F_IMF(CExtractCallbackConsole::CryptoGetTextPassword(BSTR *password))
   COM_TRY_END
 }
 
-STDMETHODIMP CExtractCallbackConsole::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+Z7_COM7F_IMF(CExtractCallbackConsole::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password))
 {
   COM_TRY_BEGIN
   MT_LOCK

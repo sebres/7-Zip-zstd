@@ -57,7 +57,7 @@ class CAesInStream:
 
   bool Eof;
   UInt32 _raheadSize;
-  CAlignedBuffer *_raheadBuf;
+  CAlignedBuffer1 *_raheadBuf;
 
 public:
 

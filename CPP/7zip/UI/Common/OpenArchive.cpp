@@ -1183,7 +1183,7 @@ Z7_COM7F_IMF(CArchiveOpenCallback_Offset::CryptoGetTextPassword(BSTR *password))
   return E_NOTIMPL;
   COM_TRY_END
 }
-STDMETHODIMP CArchiveOpenCallback_Offset::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+Z7_COM7F_IMF(CArchiveOpenCallback_Offset::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password))
 {
   COM_TRY_BEGIN
   if (GetTextPassword)

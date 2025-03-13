@@ -236,7 +236,7 @@ Z7_COM7F_IMF(COpenArchiveCallback::CryptoGetTextPassword(BSTR *password))
   return StringToBstr(Password, password);
 }
 
-STDMETHODIMP COpenArchiveCallback::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+Z7_COM7F_IMF(COpenArchiveCallback::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password))
 {
   passwordIsDefined = PasswordIsDefined;
   password = Password;

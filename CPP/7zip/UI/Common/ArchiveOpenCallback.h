@@ -24,7 +24,7 @@ Z7_PURE_INTERFACES_BEGIN
 
 #define Z7_IFACEM_IOpenCallbackUI_Crypto(x) \
   virtual HRESULT Open_CryptoGetTextPassword(BSTR *password) x \
-  /* virtual HRESULT Open_GetPasswordIfAny(bool &passwordIsDefined, UString &password) x */ \
+  virtual HRESULT Open_GetPasswordIfAny(bool &passwordIsDefined, UString &password) x \
   /* virtual bool Open_WasPasswordAsked() x */ \
   /* virtual void Open_Clear_PasswordWasAsked_Flag() x */  \
   

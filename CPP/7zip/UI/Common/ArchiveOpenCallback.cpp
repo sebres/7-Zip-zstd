@@ -385,13 +385,14 @@ Z7_COM7F_IMF(COpenCallbackImp::CryptoGetTextPassword(BSTR *password))
   COM_TRY_END
 }
 
-STDMETHODIMP COpenCallbackImp::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+Z7_COM7F_IMF(COpenCallbackImp::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password))
 {
   COM_TRY_BEGIN
   if (ReOpenCallback)
   {
-    CMyComPtr<ICryptoGetTextPassword> getTextPassword;
-    ReOpenCallback.QueryInterface(IID_ICryptoGetTextPassword, &getTextPassword);
+    Z7_DECL_CMyComPtr_QI_FROM(
+        ICryptoGetTextPassword,
+        getTextPassword, ReOpenCallback)
     if (getTextPassword)
       return getTextPassword->CryptoGetPasswordIfAny(passwordIsDefined, password);
   }

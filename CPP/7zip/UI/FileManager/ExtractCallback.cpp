@@ -703,7 +703,7 @@ Z7_COM7F_IMF(CExtractCallbackImp::CryptoGetTextPassword(BSTR *password))
   return StringToBstr(Password, password);
 }
 
-STDMETHODIMP CExtractCallbackImp::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+Z7_COM7F_IMF(CExtractCallbackImp::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password))
 {
   passwordIsDefined = PasswordIsDefined;
   password = Password;

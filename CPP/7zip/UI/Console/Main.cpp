@@ -395,8 +395,8 @@ static void ShowCopyrightAndHelp(CStdOutStream *so, bool needHelp)
 static int MainV(
   UStringVector &commandStrings,
   CCodecs *codecs
-  #ifdef EXTERNAL_CODECS
-  , CExternalCodecs &__externalCodecs
+  #ifdef Z7_EXTERNAL_CODECS
+  , CExternalCodecs &_externalCodecs
   #endif
 );
 static const char * const kNoErr = "";
@@ -577,7 +577,9 @@ static int StartInServerMode(UStringVector &commandStrings)
               }
               redirIn.DeleteFrom(o);
             }
-            redirInF = _wfopen(redirIn, L"rt");
+            if (_wfopen_s(&redirInF, redirIn, L"rt") != 0) {
+              redirInF = NULL;
+            };
           }
           if (!redirInF) {
             errCode = errno;
@@ -609,7 +611,9 @@ static int StartInServerMode(UStringVector &commandStrings)
             }
             redirErrF = _wfdopen(nHandle, (!(appendMode & 2) ? L"wt" : L"at"));
           } else {
-            redirErrF = _wfopen(redirErr, (!(appendMode & 2) ? L"wt" : L"at"));
+            if (_wfopen_s(&redirErrF, redirErr, (!(appendMode & 2) ? L"wt" : L"at")) != 0) {
+              redirErrF = NULL;
+            };
           }
           if (!redirErrF) {
             errCode = errno;
@@ -628,7 +632,9 @@ static int StartInServerMode(UStringVector &commandStrings)
             }
             redirOutF = _wfdopen(nHandle, (!(appendMode & 1) ? L"wt" : L"at"));
           } else {
-            redirOutF = _wfopen(redirOut, (!(appendMode & 1) ? L"wt" : L"at"));
+            if (_wfopen_s(&redirOutF, redirOut, (!(appendMode & 1) ? L"wt" : L"at")) != 0) {
+              redirOutF = NULL;
+            };
           }
           if (!redirOutF) {
             errCode = errno;
@@ -644,8 +650,8 @@ static int StartInServerMode(UStringVector &commandStrings)
       }
 
       errCode = MainV(commandStrings, codecs
-      #ifdef EXTERNAL_CODECS
-        ,__externalCodecs
+      #ifdef Z7_EXTERNAL_CODECS
+        ,_externalCodecs
       #endif
       );
 
@@ -666,11 +672,13 @@ static int StartInServerMode(UStringVector &commandStrings)
       errMsg = (kMemoryExceptionMessage);
       errCode = (NExitCode::kMemoryError);
     }
+    /*
     catch(const NConsoleClose::CCtrlBreakException &)
     {
       errMsg = (kUserBreakMessage);
       errCode = (NExitCode::kUserBreak);
     }
+    */
     catch(const CMessagePathException &e)
     {
       errMsg = (kException_CmdLine_Error_Message);
@@ -1277,9 +1285,9 @@ int Main2(
   ThrowException_if_Error(codecs->Load());
   Codecs_AddHashArcHandler(codecs);
 
-  #ifdef EXTERNAL_CODECS
+  #ifdef Z7_EXTERNAL_CODECS
   {
-    g_ExternalCodecs_Ptr = &__externalCodecs;
+    g_ExternalCodecs_Ptr = &_externalCodecs;
     UString s;
     codecs->GetCodecsErrorMessage(s);
     if (!s.IsEmpty())
@@ -1291,8 +1299,8 @@ int Main2(
   #endif
 
   return MainV(commandStrings, codecs
-  #ifdef EXTERNAL_CODECS
-    ,__externalCodecs
+  #ifdef Z7_EXTERNAL_CODECS
+    ,_externalCodecs
   #endif
   );
 }
@@ -1300,8 +1308,8 @@ int Main2(
 static int MainV(
   UStringVector &commandStrings,
   CCodecs *codecs
-  #ifdef EXTERNAL_CODECS
-  , CExternalCodecs &__externalCodecs
+  #ifdef Z7_EXTERNAL_CODECS
+  , CExternalCodecs &_externalCodecs
   #endif
 )
 {
@@ -1414,7 +1422,7 @@ static int MainV(
 
   codecs->CaseSensitive_Change = options.CaseSensitive_Change;
   codecs->CaseSensitive = options.CaseSensitive;
-  #ifdef EXTERNAL_CODECS  
+  #ifdef Z7_EXTERNAL_CODECS
   if (codecs->CaseSensitive_Change) codecs->UpdateCaseSensitive();
   #endif
 

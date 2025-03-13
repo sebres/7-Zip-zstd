@@ -34,7 +34,7 @@ CAesCoder::CAesCoder(
 CAesCoder::~CAesCoder()
 {
   // Wipe:
-  memset((Byte *)_aes, 0, _aes.Size());
+  _aes.Wipe();
   memset(_iv, 0, sizeof(_iv));
 }
 

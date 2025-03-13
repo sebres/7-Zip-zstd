@@ -194,6 +194,7 @@ CRYPTO_OBJS = \
   $O\7zAes.obj \
   $O\7zAesRegister.obj \
   $O\HmacSha1.obj \
+  $O\AesStream.obj \
   $O\MyAes.obj \
   $O\MyAesReg.obj \
   $O\Pbkdf2HmacSha1.obj \

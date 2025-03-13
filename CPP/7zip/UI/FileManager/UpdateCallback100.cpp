@@ -145,7 +145,7 @@ Z7_COM7F_IMF(CUpdateCallback100Imp::CryptoGetTextPassword(BSTR *password))
   }
   return StringToBstr(Password, password);
 }
-STDMETHODIMP CUpdateCallback100Imp::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+Z7_COM7F_IMF(CUpdateCallback100Imp::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password))
 {
   passwordIsDefined = PasswordIsDefined;
   password = Password;

@@ -996,7 +996,7 @@ Z7_COM7F_IMF(CArchiveUpdateCallback::CryptoGetTextPassword(BSTR *password))
   COM_TRY_END
 }
 
-STDMETHODIMP CArchiveUpdateCallback::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password)
+Z7_COM7F_IMF(CArchiveUpdateCallback::CryptoGetPasswordIfAny(bool& passwordIsDefined, UString& password))
 {
   COM_TRY_BEGIN
   return Callback->CryptoGetPasswordIfAny(passwordIsDefined, password);

@@ -59,6 +59,7 @@ public:
 class CAlignedBuffer1
 {
   Byte *_data;
+  size_t _size;
 
   Z7_CLASS_NO_COPY(CAlignedBuffer1)
 
@@ -74,7 +75,12 @@ public:
     _data = (Byte *)z7_AlignedAlloc(size);
     if (!_data)
       throw 1;
+    _size = size;
   }
+
+  void Wipe() {
+    memset(_data, 0, _size);
+  };
 
   operator       Byte *()       { return _data; }
   operator const Byte *() const { return _data; }
