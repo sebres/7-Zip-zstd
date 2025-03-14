@@ -9,16 +9,15 @@ You can install it in two ways:
 
 # Status
 
-[![Build status](https://ci.appveyor.com/api/projects/status/j9cwlxqe1g21c4dj?svg=true)](https://ci.appveyor.com/project/mcmilk/7-zip-zstd)
 [![Latest stable release](https://img.shields.io/github/release/mcmilk/7-Zip-zstd.svg)](https://github.com/mcmilk/7-Zip-zstd/releases)
 [![PayPal.me](https://img.shields.io/badge/PayPal-me-blue.svg?maxAge=2592000)](https://www.paypal.me/TinoReichardt)
 
 
 ## Codec overview
-1. [Zstandard] v1.5.6 is a real-time compression algorithm, providing high compression ratios. It offers a very wide range of compression / speed trade-off, while being backed by a very fast decoder.
+1. [Zstandard] v1.5.7 is a real-time compression algorithm, providing high compression ratios. It offers a very wide range of compression / speed trade-off, while being backed by a very fast decoder.
    - Levels: 1..22
 
-2. [Brotli] v.1.0.9 is a generic-purpose lossless compression algorithm that compresses data using a combination of a modern variant of the LZ77 algorithm, Huffman coding and 2nd order context modeling, with a compression ratio comparable to the best currently available general-purpose compression methods. It is similar in speed with deflate but offers more dense compression.
+2. [Brotli] v.1.1.0 is a generic-purpose lossless compression algorithm that compresses data using a combination of a modern variant of the LZ77 algorithm, Huffman coding and 2nd order context modeling, with a compression ratio comparable to the best currently available general-purpose compression methods. It is similar in speed with deflate but offers more dense compression.
    - Levels: 0..11
 
 3. [LZ4] v1.9.4 is lossless compression algorithm, providing compression speed at 400 MB/s per core (0.16 Bytes/cycle). It features an extremely fast decoder, with speed in multiple GB/s per core (0.71 Bytes/cycle). A high compression derivative, called LZ4_HC, is available, trading customizable CPU time for compression ratio.
@@ -46,7 +45,7 @@ You can install it in two ways:
 
 The output should look like this:
 ```
-7-Zip 24.09 ZS v1.5.6 (x64) : Copyright (c) 1999-2022 Igor Pavlov, 2016-2023 Tino Reichardt : 2025-02-12
+7-Zip 24.09 ZS v1.5.7 (x64) : Copyright (c) 1999-2022 Igor Pavlov, 2016-2023 Tino Reichardt : 2025-02-26
 
 Libs:
  0  c:\Program Files\7-Zip-Zstandard\7z.dll
@@ -291,15 +290,14 @@ You find this project useful, maybe you consider a donation ;-)
 ## Version Information
 
 - 7-Zip ZS Version 24.09
-  - [Brotli] Version 1.0.9
+  - [Brotli] Version 1.1.0
   - [Fast LZMA2] Version 1.0.1
   - [Lizard] Version 1.0
   - [LZ4] Version 1.9.4
   - [LZ5] Version 1.5
-  - [Zstandard] Version 1.5.6
-  - [BLAKE3] Version 0.3.7
+  - [Zstandard] Version 1.5.7
 
-/TR 2023-06-18
+/TR 2025-02-26
 
 ## Notes
 

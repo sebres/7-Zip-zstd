@@ -272,6 +272,7 @@ BROTLI_OBJS = \
   $O/br_brotli_bit_stream.obj \
   $O/br_cluster.obj \
   $O/br_command.obj \
+  $O/br_compound_dictionary.obj \
   $O/br_compress_fragment.obj \
   $O/br_compress_fragment_two_pass.obj \
   $O/br_constants.obj \
@@ -289,6 +290,7 @@ BROTLI_OBJS = \
   $O/br_memory.obj \
   $O/br_metablock.obj \
   $O/br_platform.obj \
+  $O/br_shared_dictionary.obj \
   $O/br_state.obj \
   $O/br_static_dict.obj \
   $O/br_transform.obj \
@@ -335,6 +337,7 @@ ZSTD_OBJS = \
   $O\zstd_ldm.obj \
   $O\zstdmt_compress.obj \
   $O\zstd_opt.obj \
+  $O\zstd_preSplit.obj \
   $O\zstd_v01.obj \
   $O\zstd_v02.obj \
   $O\zstd_v03.obj \
