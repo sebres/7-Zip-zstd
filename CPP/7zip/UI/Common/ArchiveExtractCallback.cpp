@@ -68,6 +68,8 @@ Z7_CLASS_IMP_NOQIB_1(
   COutStreamWithOffsLen
   , IOutStream
 )
+  Z7_IFACE_COM7_IMP(ISequentialOutStream)
+
   ISequentialOutStream *_stream;
   UInt64 _offset;
   UInt64 _length;
@@ -83,7 +85,7 @@ public:
     _stream->Release();
   }
 
-  HRESULT Write(const void* data, UInt32 size, UInt32* processedSize);
+  //HRESULT Write(const void* data, UInt32 size, UInt32* processedSize);
   //HRESULT Seek(Int64 offset, UInt32 seekOrigin, UInt64* newPosition);
   //HRESULT SetSize(UInt64 newSize);
 };
