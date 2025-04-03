@@ -1,0 +1,88 @@
+# z-ext.test --
+#
+# Part of 7-zip ZS test suite.
+# Test for enhancements of srv-mode version.
+#
+# Copyright (c) 2025- by Sergey G. Brester aka sebres
+
+if {[namespace which -command "::7z"] eq ""} {
+	source [file join [file dirname [info script]] 7z.tcl]
+}
+
+testConstraint openssl [expr {![catch {exec openssl --version}]}]
+
+test z-ext--direct-encryption {7z direct encryption, decription with openssl} -constraints {openssl} -body {
+	variable 7Z_PATH
+	set ke [binary encode hex {`keykeykeykeykeykeykeykeyketkey`}]
+	set iv [binary encode hex {-iviviviviviviv-}]
+	foreach {t l} {zstd 3 brotli 1} {
+		# to test PKCS#7 padding is correct, we will use different length...
+		set v "test zstd & brotli 0123456789-ABCEFGHIJKLMNOPQRSTUVWXYZ?_*."
+		while {$v ne ""} {
+			# compress with encryption, decrypt with openssl, decompress:
+			if {[catch {
+				#puts $t\tTL:[string length $v]\tC:[string length [7z_2_bin a -t$t -mx3 -si -so . << "$v"]]\tP:[string length [7z_2_bin a -t$t -mx3 -si -so -ekey$ke$iv . << "$v"]]
+				set v2 [
+					7z a -t$t -mx$l -si -so -ekey$ke$iv . << "$v" | \
+					openssl enc -aes-256-cbc -nosalt -K "$ke" -iv "$iv" -d | \
+					$7Z_PATH e -t$t -si -so
+				]
+				if {$v2 ne $v} {
+					error "retrieved $v2 instead of original"
+				}
+			} res]} {
+				error "Test of -t$t on \"$v\" failed: $res"
+			}
+			set v [string range $v 0 end-[expr {$t eq "zstd" ? 4 : 12}]]
+		}
+	}
+	set _ OK
+} -result OK
+
+test z-ext--direct-encrypt-decrypt {7z direct encryption, decription} {
+	variable 7Z_PATH
+	set ke [binary encode hex {`keykeykeykeykeykeykeykeyketkey`}]
+	set iv [binary encode hex {-iviviviviviviv-}]
+	foreach {t l} {zstd 9 brotli 5} {
+		# to test PKCS#7 padding is correct, we will use different length...
+		set v "test zstd & brotli 0123456789-ABCEFGHIJKLMNOPQRSTUVWXYZ?_*."
+		while {$v ne ""} {
+			# compress with encryption, decompress with encryption:
+			if {[catch {
+				#puts $t\tTL:[string length $v]\tC:[string length [7z_2_bin a -t$t -mx$l -si -so . << "$v"]]\tP:[string length [7z_2_bin a -t$t -mx$l -si -so -ekey$ke$iv . << "$v"]]
+				set v2 [
+					7z a -t$t -mx$l -si -so -ekey$ke$iv . << "$v" | \
+					$7Z_PATH e -t$t -si -so -ekey$ke$iv
+				]
+				#puts $v2
+				if {$v2 ne $v} {
+					error "retrieved $v2 instead of original"
+				}
+			} res]} {
+				error "Test of -t$t on \"$v\" failed: $res"
+			}
+			set v [string range $v 0 end-[expr {$t eq "zstd" ? 4 : 12}]]
+		}
+	}
+	set _ OK
+} OK
+
+test z-ext--decompress-w-offs-length {7z fast decompression of chunk by offset/length} {
+	variable 7Z_REGR_TEST_DIR
+	set ret {}
+	# 4 test files, compressed 1M chars, starting with TEST\n and ending with \nEND. and 1M-10 spaces in-between.
+	foreach p [lsort -dictionary [glob -directory $7Z_REGR_TEST_DIR test.txt.*]] {
+		if {![regexp {\.(?:br|zstd)} $p]} continue
+		lappend ret [file tail $p]
+		lappend ret [7z e -eoffs=0:4 -so -- $p] [7z e -eoffs=999996:4 -so -- $p]
+		lappend ret [7z e -eoffs=2:8 -so -- $p] [7z e -eoffs=999990:8 -so -- $p]
+	}
+	set ret
+} [list {*}{
+	test.txt.br      TEST END. "ST\n     " "     \nEN"
+	test.txt.br.7z   TEST END. "ST\n     " "     \nEN"
+	test.txt.zstd    TEST END. "ST\n     " "     \nEN"
+	test.txt.zstd.7z TEST END. "ST\n     " "     \nEN"
+}]
+
+::tcltest::cleanupTests
