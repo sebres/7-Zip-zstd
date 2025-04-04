@@ -57,7 +57,7 @@ public:
   UInt64 _memUsage_Decompress;
   size_t _memAvail;
 
-  bool SetCommonProperty(const UString &name, const PROPVARIANT &value, HRESULT &hres);
+  int SetCommonProperty(const UString &name, const PROPVARIANT &value, HRESULT &hres);
 
   CCommonMethodProps() { InitCommon(); }
 };
@@ -67,10 +67,12 @@ public:
 
 class CMultiMethodProps: public CCommonMethodProps
 {
+  void InitMulti();
+
+protected:
   UInt32 _level;
   int _analysisLevel;
 
-  void InitMulti();
 public:
   UInt32 _crcSize;
   CObjectVector<COneMethodInfo> _methods;
