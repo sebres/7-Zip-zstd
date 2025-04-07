@@ -1484,6 +1484,8 @@ HRESULT CArchiveExtractCallback::GetExtractStream(CMyComPtr<ISequentialOutStream
   }
   
   _diskFilePath = fullProcessedPath;
+  if (FirstExtractedPath.IsEmpty())
+    FirstExtractedPath = fullProcessedPath;
     
 
   if (isAnti)
