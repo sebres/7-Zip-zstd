@@ -123,9 +123,10 @@ DECLARE_AND_SET_CLIENT_VERSION_VAR
 #endif
 
 
-static const char * const kCopyrightString = "\n7-Zip"
-  PROG_POSTFIX_2
-  " " MY_VERSION_CPU
+#define kVersionString "7-Zip" PROG_POSTFIX_2 " " MY_VERSION_CPU
+
+static const char * const kCopyrightString = "\n"
+  kVersionString
   " : " MY_COPYRIGHT_DATE "\n";
 
 static const char * const kHelpString =
@@ -146,6 +147,7 @@ static const char * const kHelpString =
     "  u : Update files to archive\n"
     "  x : eXtract files with full paths\n"
     "  --srv-mode : Start in interactive server mode\n"
+    "  --version : Show version information\n"
     "\n"
     "<Switches>\n"
     "  -- : Stop switches and @listfile parsing\n"
@@ -1316,6 +1318,11 @@ static int MainV(
   if (commandStrings.Size() == 0)
   {
     ShowCopyrightAndHelp(g_StdStream, true);
+    return 0;
+  }
+
+  if (commandStrings.Size() == 1 && commandStrings[0] == L"--version") {
+    *g_StdStream << kVersionString;
     return 0;
   }
 
