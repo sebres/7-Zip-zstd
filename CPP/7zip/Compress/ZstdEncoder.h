@@ -52,6 +52,7 @@ public:
   UInt32 _numThreads;
 
   /* zstd advanced compression options */
+  bool  _Max;
   Int32 _Long;
   Int32 _Level;
   Int32 _Strategy;
