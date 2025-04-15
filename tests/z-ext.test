@@ -72,10 +72,15 @@ test z-ext--decompress-w-offs-length {7z fast decompression of chunk by offset/l
 	set ret {}
 	# 4 test files, compressed 1M chars, starting with TEST\n and ending with \nEND. and 1M-10 spaces in-between.
 	foreach p [lsort -dictionary [glob -directory $7Z_REGR_TEST_DIR test.txt.*]] {
-		if {![regexp {\.(?:br|zstd)} $p]} continue
+		if {![regexp {\.txt\.(?:br|zstd)(?:\.7z)?$} $p]} continue
 		lappend ret [file tail $p]
-		lappend ret [7z e -eoffs=0:4 -so -- $p] [7z e -eoffs=999996:4 -so -- $p]
-		lappend ret [7z e -eoffs=2:8 -so -- $p] [7z e -eoffs=999990:8 -so -- $p]
+		if {[catch {
+			lappend ret [7z e -eoffs=0:4 -so -- $p] [7z e -eoffs=999996:4 -so -- $p]
+			lappend ret [7z e -eoffs=2:8 -so -- $p] [7z e -eoffs=999990:8 -so -- $p]
+		} res opt]} {
+			dict set opt -errorinfo "unexpected error by decompress \"[file tail $p]\": [dict get $opt -errorinfo]"
+			return {*}$opt "unexpected error by decompress \"[file tail $p]\": $res"
+		}
 	}
 	set ret
 } [list {*}{
