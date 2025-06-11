@@ -27,6 +27,7 @@
 #include "../../Compress/ShrinkDecoder.h"
 #include "../../Compress/XzDecoder.h"
 #include "../../Compress/ZstdDecoder.h"
+#include "../../Compress/BrotliDecoder.h"
 
 #include "../../Crypto/WzAes.h"
 #include "../../Crypto/ZipCrypto.h"
@@ -1168,6 +1169,12 @@ HRESULT CZipDecoder::Decode(
       mi.Coder = new NCompress::NPpmdZip::CDecoder(true);
     else if (id == NFileHeader::NCompressionMethod::kZstd)
       mi.Coder = new NCompress::NZSTD::CDecoder();
+    else if (id == NFileHeader::NCompressionMethod::kBrotli) {
+      NCompress::NBROTLI::CDecoder *decoderSpec;
+      decoderSpec = new NCompress::NBROTLI::CDecoder();
+      decoderSpec->SetNumberOfThreads(0); //0 = ST Brotli
+      mi.Coder = decoderSpec;
+    }
 #ifndef Z7_ZIP_LZFSE_DISABLE
     else if (id == NFileHeader::NCompressionMethod::kWzAES)
       mi.Coder = new NCompress::NLzfse::CDecoder;

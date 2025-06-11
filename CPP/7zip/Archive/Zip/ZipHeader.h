@@ -64,7 +64,8 @@ namespace NFileHeader
       kJpeg = 96,    // JPEG variant
       kWavPack = 97, // WavPack compressed data
       kPPMd = 98,    // PPMd version I, Rev 1
-      kWzAES = 99    // AE-x encryption marker (see APPENDIX E)
+      kWzAES = 99,   // AE-x encryption marker (see APPENDIX E)
+      kBrotli = 129  // Brotli Compression (Mozilla ja-files, see gh-412)
     };
 
     const Byte kMadeByProgramVersion = 63;
