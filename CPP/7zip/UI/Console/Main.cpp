@@ -1353,9 +1353,12 @@ static int MainV(
 
   if (options.EnableHeaders)
   {
-    ShowCopyrightAndHelp(g_StdStream, false);
-    if (!parser.Parse1Log.IsEmpty())
-      *g_StdStream << parser.Parse1Log;
+    if (g_StdStream)
+    {
+      ShowCopyrightAndHelp(g_StdStream, false);
+      if (!parser.Parse1Log.IsEmpty())
+        *g_StdStream << parser.Parse1Log;
+    }
   }
 
   parser.Parse2(options);

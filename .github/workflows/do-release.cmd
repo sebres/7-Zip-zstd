@@ -4,7 +4,7 @@ REM Build some release of 7-Zip ZS
 SET COPYCMD=/Y /B
 SET COPTS=-m0=lzma -mx9 -ms=on -mf=bcj2
 SET URL=https://www.7-zip.org/a/7z2409.exe
-SET VERSION=24.09
+SET VERSION=25.00
 SET SZIP="C:\Program Files\7-Zip\7z.exe"
 SET LURL=https://raw.githubusercontent.com/mcmilk/7-Zip-zstd/master/CPP/7zip/Bundles
 
@@ -53,7 +53,7 @@ curl %LURL%/TotalCMD/LICENSE --output LICENSE
 curl %LURL%/TotalCMD/README.md --output README.md
 goto done_%ARCH%
 
-REM Currently we build 4 architectures
+REM Currently we build 3 architectures
 :start
 SET ARCH=x32
 SET ZIP32=
@@ -69,6 +69,8 @@ SET TCDLL=tc7z64.dll
 goto doit
 :done_x64
 
+REM Build of 32-bit ARM is disabled now, since Windows SDK 10.0.26100.0 its support is dropped
+goto done_arm
 SET ARCH=arm
 SET ZIP32=
 SET BIN=%WD%\bin-arm
