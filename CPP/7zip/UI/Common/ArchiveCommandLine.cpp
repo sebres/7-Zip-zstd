@@ -344,7 +344,7 @@ static const CSwitchForm kSwitchForms[] =
   { "spf", SWFRM_STRING_SINGL(0) },
   
   { "snh", SWFRM_MINUS },
-  { "snld", SWFRM_MINUS },
+  { "snld", SWFRM_STRING },
   { "snl", SWFRM_MINUS },
   { "sni", SWFRM_SIMPLE },
 
@@ -1522,14 +1522,8 @@ void CArcCmdLineParser::Parse2(CArcCmdLineOptions &options)
   
   SetBoolPair(parser, NKey::kStoreOwnerId, options.StoreOwnerId);
   SetBoolPair(parser, NKey::kStoreOwnerName, options.StoreOwnerName);
-
-  CBoolPair symLinks_AllowDangerous;
-  SetBoolPair(parser, NKey::kSymLinks_AllowDangerous, symLinks_AllowDangerous);
-  
-
   /*
   bool supportSymLink = options.SymLinks.Val;
-  
   if (!options.SymLinks.Def)
   {
     if (isExtractOrList)
@@ -1537,7 +1531,6 @@ void CArcCmdLineParser::Parse2(CArcCmdLineOptions &options)
     else
       supportSymLink = false;
   }
-
   #ifdef ENV_HAVE_LSTAT
   if (supportSymLink)
     global_use_lstat = 1;
@@ -1545,7 +1538,6 @@ void CArcCmdLineParser::Parse2(CArcCmdLineOptions &options)
     global_use_lstat = 0;
   #endif
   */
-
 
   if (isExtractOrList)
   {
@@ -1570,7 +1562,15 @@ void CArcCmdLineParser::Parse2(CArcCmdLineOptions &options)
       if (!options.SymLinks.Def)
         nt.SymLinks.Val = true;
 
-      nt.SymLinks_AllowDangerous = symLinks_AllowDangerous;
+      if (parser[NKey::kSymLinks_AllowDangerous].ThereIs)
+      {
+        const UString &s = parser[NKey::kSymLinks_AllowDangerous].PostStrings[0];
+        UInt32 v = 9; // default value for "-snld" instead of default = 5 without "-snld".
+        if (!s.IsEmpty())
+          if (!StringToUInt32(s, v))
+            throw CArcCmdLineException("Unsupported switch postfix -snld", s);
+        nt.SymLinks_DangerousLevel = (unsigned)v;
+      }
 
       nt.ReplaceColonForAltStream = parser[NKey::kReplaceColonForAltStream].ThereIs;
       nt.WriteToAltStreamIfColon = parser[NKey::kWriteToAltStreamIfColon].ThereIs;
