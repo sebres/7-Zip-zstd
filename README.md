@@ -20,13 +20,13 @@ You can install it in two ways:
 2. [Brotli] v.1.1.0 is a generic-purpose lossless compression algorithm that compresses data using a combination of a modern variant of the LZ77 algorithm, Huffman coding and 2nd order context modeling, with a compression ratio comparable to the best currently available general-purpose compression methods. It is similar in speed with deflate but offers more dense compression.
    - Levels: 0..11
 
-3. [LZ4] v1.9.4 is lossless compression algorithm, providing compression speed at 400 MB/s per core (0.16 Bytes/cycle). It features an extremely fast decoder, with speed in multiple GB/s per core (0.71 Bytes/cycle). A high compression derivative, called LZ4_HC, is available, trading customizable CPU time for compression ratio.
+3. [LZ4] v1.10.0 is lossless compression algorithm, providing compression speed at 400 MB/s per core (0.16 Bytes/cycle). It features an extremely fast decoder, with speed in multiple GB/s per core (0.71 Bytes/cycle). A high compression derivative, called LZ4_HC, is available, trading customizable CPU time for compression ratio.
    - Levels: 1..12
 
 4. [LZ5] v1.5 is a modification of LZ4 which was meant for a better ratio at cost of slower compression and decompression. It's superseded by [Lizard] now.
    - Levels: 1..15
 
-5. [Lizard] v1.0 is an efficient compressor with fast decompression. It achieves compression ratio that is comparable to zip/zlib and zstd/brotli (at low and medium compression levels) at decompression speed of 1000 MB/s and faster.
+5. [Lizard] v2.1 is an efficient compressor with fast decompression. It achieves compression ratio that is comparable to zip/zlib and zstd/brotli (at low and medium compression levels) at decompression speed of 1000 MB/s and faster.
    - Levels 10..19 (fastLZ4) are designed to give about 10% better decompression speed than LZ4
    - Levels 20..29 (LIZv1) are designed to give better ratio than LZ4 keeping 75% decompression speed
    - Levels 30..39 (fastLZ4 + Huffman) adds Huffman coding to fastLZ4
@@ -292,8 +292,8 @@ You find this project useful, maybe you consider a donation ;-)
 - 7-Zip ZS Version 25.01
   - [Brotli] Version 1.1.0
   - [Fast LZMA2] Version 1.0.1
-  - [Lizard] Version 1.0
-  - [LZ4] Version 1.9.4
+  - [Lizard] Version 2.1
+  - [LZ4] Version 1.10.0
   - [LZ5] Version 1.5
   - [Zstandard] Version 1.5.7
 

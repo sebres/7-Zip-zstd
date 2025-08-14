@@ -116,6 +116,7 @@ COMPRESS_OBJS = $(COMPRESS_OBJS) \
   $O\Lz4Register.obj \
   $O\LizardDecoder.obj \
   $O\LizardRegister.obj \
+  $O\liz_debug.obj \
   $O\liz_entropy_common.obj \
   $O\liz_fse_compress.obj \
   $O\liz_fse_decompress.obj \
