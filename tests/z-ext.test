@@ -9,7 +9,7 @@ if {[namespace which -command "::7z"] eq ""} {
 	source [file join [file dirname [info script]] 7z.tcl]
 }
 
-testConstraint openssl [expr {![catch {exec openssl --version}]}]
+testConstraint openssl [expr {![catch {exec openssl version}]}]
 
 test z-ext--direct-encryption {7z direct encryption, decription with openssl} -constraints {openssl} -body {
 	variable Z7_PATH
