@@ -64,7 +64,7 @@ You can contact the author at :
 #include "lz5.h"
 #include "lz5hc.h"
 #define XXH_STATIC_LINKING_ONLY
-#include "../zstd/xxhash.h"
+#include "../hashes/xxhash.h"
 
 /**************************************
 *  Basic Types
@@ -1098,7 +1098,6 @@ size_t LZ5F_decompress(LZ5F_decompressionContext_t decompressionContext,
                 dctxPtr->dStage = dstage_storeHeader;
             }
             /* fall through */
-
         case dstage_storeHeader:
             {
                 size_t sizeToCopy = dctxPtr->tmpInTarget - dctxPtr->tmpInSize;

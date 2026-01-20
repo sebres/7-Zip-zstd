@@ -8,16 +8,6 @@ ZIP_FLAGS=-DZ7_ZIP_LZFSE_DISABLE
 # USE_ASM = 1
 # ST_MODE = 1
 
-# USE_C_LZFINDOPT = 1
-
-MY_CONSOLE = 1
-CFLAGS_OPT = -Ofast -s -march=core2
-CFLAGS_BASE2 = -DZSTD_MULTITHREAD
-
-ifndef UNDER_CE
-MY_ARCH = -DWIN_LONG_PATH -D_7ZIP_LARGE_PAGES -DSUPPORT_DEVICE_FILE
-endif
-
 ifdef SystemDrive
 IS_MINGW = 1
 else
@@ -82,7 +72,6 @@ SYS_OBJS = \
 else
 
 SYS_OBJS = \
-  $O/DllSecur.o \
   $O/MyWindows.o \
 
 endif
@@ -148,7 +137,6 @@ COMMON_OBJS = \
   $O/StringToInt.o \
   $O/UTFConvert.o \
   $O/Wildcard.o \
-  $O/Xxh64Reg.o \
   $O/XzCrc64Init.o \
   $O/XzCrc64Reg.o \
 
@@ -246,7 +234,7 @@ ZIP_OBJS = \
   $O/ZipUpdate.o \
   $O/ZipRegister.o \
 
-_COMPRESS_OBJS = \
+COMPRESS_OBJS = \
   $O/Bcj2Coder.o \
   $O/Bcj2Register.o \
   $O/BcjCoder.o \
@@ -291,7 +279,6 @@ _COMPRESS_OBJS = \
 CRYPTO_OBJS = \
   $O/7zAes.o \
   $O/7zAesRegister.o \
-  $O/AesStream.o \
   $O/HmacSha1.o \
   $O/MyAes.o \
   $O/MyAesReg.o \
@@ -337,7 +324,6 @@ C_OBJS = \
   $O/Sha256Opt.o \
   $O/Sort.o \
   $O/SwapBytes.o \
-  $O/Xxh64.o \
   $O/Xz.o \
   $O/XzDec.o \
   $O/XzEnc.o \
@@ -345,132 +331,38 @@ C_OBJS = \
   $O/XzCrc64.o \
   $O/XzCrc64Opt.o \
 
-COMPRESS_OBJS = $(_COMPRESS_OBJS) \
-  $O/BrotliDecoder.o \
-  $O/BrotliEncoder.o \
-  $O/BrotliRegister.o \
+# 7-Zip ZS (most used)
+LZ4_OBJS = $(patsubst ../../../../C/lz4/%.c,$O/%.o,$(wildcard ../../../../C/lz4/*.c))
+XXH_OBJS = $(patsubst ../../../../C/hashes/%.c,$O/%.o,$(wildcard ../../../../C/hashes/xxh*.c))
+ZSTD_OBJS = $(patsubst ../../../../C/zstd/%.c,$O/%.o,$(wildcard ../../../../C/zstd/*.c))
+ZSTDMT_OBJS = $(patsubst ../../../../C/zstdmt/%.c,$O/%.o,$(wildcard ../../../../C/zstdmt/lz4*.c))
+ZSTDMT_OBJS += $(patsubst ../../../../C/zstdmt/%.c,$O/%.o,../../../../C/zstdmt/zstd-mt_threading.c)
+FASTLZMA2_OBJS = $(patsubst ../../../../C/fast-lzma2/%.c,$O/%.o,$(wildcard ../../../../C/fast-lzma2/*.c))
+
+C_OBJS += \
+  $(LZ4_OBJS) \
+  $(XXH_OBJS) \
+  $(ZSTD_OBJS) \
+  $(ZSTDMT_OBJS) \
+  $(FASTLZMA2_OBJS) \
+
+COMMON_OBJS += \
+  $O/XXH32Reg.o \
+  $O/XXH64Reg.o \
+  $O/XXH3-64Reg.o \
+  $O/XXH3-128Reg.o \
+
+AR_OBJS += \
+  $O/LzHandler.o \
+  $O/Lz4Handler.o \
+
+COMPRESS_OBJS += \
   $O/Lz4Decoder.o \
   $O/Lz4Encoder.o \
   $O/Lz4Register.o \
-  $O/LizardDecoder.o \
-  $O/LizardEncoder.o \
-  $O/LizardRegister.o \
-  $O/Lz5Decoder.o \
-  $O/Lz5Encoder.o \
-  $O/Lz5Register.o \
-  $O/ZstdDecoder.o \
   $O/ZstdEncoder.o \
   $O/ZstdRegister.o \
   $O/FastLzma2Register.o \
-
-BROTLI_OBJS = \
-  $O/br_backward_references.o \
-  $O/br_backward_references_hq.o \
-  $O/br_bit_cost.o \
-  $O/br_bit_reader.o \
-  $O/br_block_splitter.o \
-  $O/br_brotli_bit_stream.o \
-  $O/br_cluster.o \
-  $O/br_command.o \
-  $O/br_compress_fragment.o \
-  $O/br_compress_fragment_two_pass.o \
-  $O/br_constants.o \
-  $O/br_context.o \
-  $O/br_decode.o \
-  $O/br_dictionary.o \
-  $O/br_dictionary_hash.o \
-  $O/br_encode.o \
-  $O/br_encoder_dict.o \
-  $O/br_entropy_encode.o \
-  $O/br_fast_log.o \
-  $O/br_histogram.o \
-  $O/br_huffman.o \
-  $O/br_literal_cost.o \
-  $O/br_memory.o \
-  $O/br_metablock.o \
-  $O/br_platform.o \
-  $O/br_state.o \
-  $O/br_static_dict.o \
-  $O/br_transform.o \
-  $O/br_utf8_util.o \
-
-LIZARD_OBJS = \
-  $O/lizard_compress.o \
-  $O/lizard_decompress.o \
-  $O/lizard_frame.o \
-
-LZ4_OBJS = \
-  $O/lz4.o \
-  $O/lz4frame.o \
-  $O/lz4hc.o \
-
-LZ5_OBJS = \
-  $O/lz5.o \
-  $O/lz5frame.o \
-  $O/lz5hc.o \
-
-ZSTD_OBJS = \
-  $O/debug.o \
-  $O/entropy_common.o \
-  $O/error_private.o \
-  $O/fse_compress.o \
-  $O/fse_decompress.o \
-  $O/hist.o \
-  $O/huf_compress.o \
-  $O/huf_decompress.o \
-  $O/pool.o \
-  $O/threading.o \
-  $O/xxhash.o \
-  $O/zstd_common.o \
-  $O/zstd_compress.o \
-  $O/zstd_compress_literals.o \
-  $O/zstd_compress_sequences.o \
-  $O/zstd_compress_superblock.o \
-  $O/zstd_ddict.o \
-  $O/zstd_decompress_block.o \
-  $O/zstd_decompress.o \
-  $O/zstd_double_fast.o \
-  $O/zstd_fast.o \
-  $O/zstd_lazy.o \
-  $O/zstd_ldm.o \
-  $O/zstd_trace.o \
-  $O/zstdmt_compress.o \
-  $O/zstd_opt.o \
-  $O/zstd_v01.o \
-  $O/zstd_v02.o \
-  $O/zstd_v03.o \
-  $O/zstd_v04.o \
-  $O/zstd_v05.o \
-  $O/zstd_v06.o \
-  $O/zstd_v07.o \
-
-ZSTDMT_OBJS = \
-  $O/brotli-mt_common.o \
-  $O/brotli-mt_compress.o \
-  $O/brotli-mt_decompress.o \
-  $O/lizard-mt_common.o \
-  $O/lizard-mt_compress.o \
-  $O/lizard-mt_decompress.o \
-  $O/lz4-mt_common.o \
-  $O/lz4-mt_compress.o \
-  $O/lz4-mt_decompress.o \
-  $O/lz5-mt_common.o \
-  $O/lz5-mt_compress.o \
-  $O/lz5-mt_decompress.o \
-  $O/zstd-mt_threading.o \
-
-FASTLZMA2_OBJS = \
-  $O/dict_buffer.o \
-  $O/fl2_common.o \
-  $O/fl2_compress.o \
-  $O/fl2_pool.o \
-  $O/fl2_threading.o \
-  $O/lzma2_enc.o \
-  $O/radix_bitpack.o \
-  $O/radix_mf.o \
-  $O/radix_struct.o \
-  $O/range_enc.o \
-  $O/util.o \
 
 OBJS = \
   $(LZMA_DEC_OPT_OBJS) \
@@ -490,13 +382,5 @@ OBJS = \
   $(ZIP_OBJS) \
   $(UI_COMMON_OBJS) \
   $(CONSOLE_OBJS) \
-  $(BROTLI_OBJS) \
-  $(HASHES_OBJS) \
-  $(LIZARD_OBJS) \
-  $(LZ4_OBJS) \
-  $(LZ5_OBJS) \
-  $(ZSTD_OBJS) \
-  $(ZSTDMT_OBJS) \
-  $(FASTLZMA2_OBJS)
 
 include ../../7zip_gcc.mak

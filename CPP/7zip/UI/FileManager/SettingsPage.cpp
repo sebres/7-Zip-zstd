@@ -24,6 +24,10 @@
 #include "SettingsPage.h"
 #include "SettingsPageRes.h"
 
+#ifdef ZIP7_DARKMODE
+#include "../../../../DarkMode/lib/include/DarkModeSubclass.h"
+#endif
+
 using namespace NWindows;
 
 #ifdef Z7_LANG
@@ -122,6 +126,11 @@ bool CSettingsPage::OnInit()
   _wasChanged = false;
   _largePages_wasChanged = false;
   _memx_wasChanged = false;
+
+#ifdef ZIP7_DARKMODE
+  _clrMode_wasChanged = false;
+#endif
+
   /*
   _wasChanged_MemLimit = false;
   _memLimitStrings.Clear();
@@ -252,6 +261,32 @@ bool CSettingsPage::OnInit()
     SetItemText(IDE_SETTINGS_MEM_SPIN_EDIT, s);
   }
 
+#ifdef ZIP7_DARKMODE
+  {
+    const bool isININotUsed = !DarkMode::doesConfigFileExist() && DarkMode::isAtLeastWindows10();
+    EnableItem(IDC_COLOR_MODE, isININotUsed);
+
+    _clrModeCombo.Attach(GetItem(IDC_COLOR_MODE));
+
+    if (isININotUsed)
+    {
+      _curClrMode = Read_ClrMode();
+      const wchar_t* modes[] = { L"classic", L"dark", L"system" };
+      for (const auto& mode : modes)
+      {
+        _clrModeCombo.AddString(mode);
+      }
+      _clrModeCombo.SetCurSel(_curClrMode);
+    }
+    else
+    {
+      const wchar_t* mode = DarkMode::isAtLeastWindows10() ? L"INI used" : L"Old OS";
+      _clrModeCombo.AddString(mode);
+      _clrModeCombo.SetCurSel(0);
+    }
+  }
+#endif
+
   _initMode = false;
   return CPropertyPage::OnInit();
 }
@@ -336,6 +371,49 @@ LONG CSettingsPage::OnApply()
     _memx_wasChanged = false;
   }
 
+#ifdef ZIP7_DARKMODE
+  if (_clrMode_wasChanged)
+  {
+    _curClrMode = _clrModeCombo.GetCurSel();
+    Save_ClrMode(_curClrMode);
+    switch (_curClrMode)
+    {
+      case 0:
+      {
+        DarkMode::setDarkModeConfigEx(static_cast<UINT>(DarkMode::DarkModeType::classic));
+        break;
+      }
+
+      case 2:
+      {
+        DarkMode::setDarkModeConfig();
+        break;
+      }
+
+      //case 1:
+      default:
+      {
+        DarkMode::setDarkModeConfigEx(static_cast<UINT>(DarkMode::DarkModeType::dark));
+        break;
+      }
+    }
+
+    DarkMode::setDefaultColors(true);
+
+    HWND hOption = GetParent();
+    DarkMode::setChildCtrlsTheme(hOption);
+    DarkMode::setDarkTitleBarEx(hOption, true);
+    RedrawWindow(hOption, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW | RDW_FRAME);
+
+    HWND hMain = ::GetParent(GetParent());
+    DarkMode::setChildCtrlsTheme(hMain);
+    DarkMode::setDarkTitleBarEx(hMain, true);
+    RedrawWindow(hMain, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW | RDW_FRAME);
+
+    _clrMode_wasChanged = false;
+  }
+#endif
+
   /*
   if (_wasChanged_MemLimit)
   {
@@ -412,6 +490,15 @@ bool CSettingsPage::OnCommand(unsigned code, unsigned itemID, LPARAM param)
       _memx_wasChanged = true;
       Changed();
     }
+
+#ifdef ZIP7_DARKMODE
+    if (code == CBN_SELCHANGE && itemID == IDC_COLOR_MODE)
+    {
+      _clrMode_wasChanged = true;
+      Changed();
+    }
+#endif
+
     /*
   if (code == CBN_SELCHANGE)
   {

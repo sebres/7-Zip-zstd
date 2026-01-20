@@ -10,6 +10,13 @@
 
 #include "Dialog.h"
 
+#if !defined(Z7_SFX)
+#include "../../7zip/UI/FileManager/RegistryUtils.h"
+#endif
+#ifdef ZIP7_DARKMODE
+#include "../../../DarkMode/lib/include/DarkModeSubclass.h"
+#endif
+
 extern HINSTANCE g_hInstance;
 #ifndef _UNICODE
 extern bool g_IsNT;
@@ -34,7 +41,41 @@ DialogProcedure(HWND dialogHWND, UINT message, WPARAM wParam, LPARAM lParam)
   if (dialog == NULL)
     return FALSE;
   if (message == WM_INITDIALOG)
-    dialog->Attach(dialogHWND);
+  {
+      dialog->Attach(dialogHWND);
+#ifdef ZIP7_DARKMODE
+#if defined(Z7_LANG)
+      DarkMode::initDarkModeEx(L"7zDark");
+#endif
+#if !defined(Z7_SFX)
+      if (!DarkMode::doesConfigFileExist())
+      {
+        switch (Read_ClrMode())
+        {
+          case 0:
+          {
+            DarkMode::setDarkModeConfigEx(static_cast<UINT>(DarkMode::DarkModeType::classic));
+            break;
+          }
+
+          case 2:
+          {
+            DarkMode::setDarkModeConfig();
+            break;
+          }
+
+          //case 1:
+          default:
+          {
+            break;
+          }
+        }
+        DarkMode::setDefaultColors(false);
+      }
+#endif
+      DarkMode::setDarkWndNotifySafeEx(*dialog, true, true);
+#endif
+  }
 
   /* MSDN: The dialog box procedure should return
        TRUE  - if it processed the message
