@@ -415,6 +415,7 @@ static int StartInServerMode(UStringVector &commandStrings)
     PROG_POSTFIX " interactive server mode | "
     "type exit to stop interactive server mode" << endl;
 
+#ifdef _WIN32
   HANDLE h_StdIn = GetStdHandle(STD_INPUT_HANDLE);
   DWORD conMode = 0;
   if (!GetConsoleMode(h_StdIn, &conMode)) conMode = 0;
@@ -431,6 +432,7 @@ static int StartInServerMode(UStringVector &commandStrings)
       ShowMessageAndThrowException(kUserErrorMessage, NExitCode::kUserError);
     }
   }
+#endif
 
   CREATE_CODECS_OBJECT
 
@@ -472,10 +474,12 @@ static int StartInServerMode(UStringVector &commandStrings)
         break;
       if (scannedString.IsEqualTo("exit"))
         break;
+    #ifdef _WIN32
       if (!(conMode & ENABLE_ECHO_INPUT)) {
         g_StdOut << scannedString << endl;
         g_StdStream->Flush();
       }
+    #endif
 
       /*
       // command to change default codepage of std-channels (utf-8, unicode)?
@@ -497,17 +501,21 @@ static int StartInServerMode(UStringVector &commandStrings)
 
       // try to find redirect tokens in command:
       if (commandStrings.Size() > 2) {
-        UString redirIn, redirOut, redirErr;
+        FString redirIn, redirOut, redirErr;
         int appendMode = 0; 
         int fullStdRedir = 1;
         for (unsigned i = commandStrings.Size()-1; i > 0; i--) {
+        #ifdef _WIN32
           UString & p = commandStrings[i];
+        #else
+          FString p = UnicodeStringToMultiByte(commandStrings[i]);
+        #endif
           // redirect as single parameter (prefix in parameter, like ">file"):
-          if (p.IsPrefixedBy(L"<")) {
+          if (p.IsPrefixedBy("<")) {
             redirIn = p.Mid(1, p.Len()-1);
             commandStrings.Delete(i);
-          } else if (p.IsPrefixedBy(L">")) {
-            if (!p.IsPrefixedBy(L">>")) {
+          } else if (p.IsPrefixedBy(">")) {
+            if (!p.IsPrefixedBy(">>")) {
               redirOut = p.Mid(1, p.Len()-1);
             } else {
               redirOut = p.Mid(2, p.Len()-2);
@@ -515,16 +523,16 @@ static int StartInServerMode(UStringVector &commandStrings)
             }
             commandStrings.Delete(i);
             fullStdRedir = 0; // redirect CStdOutFileStream only (e. g. -so)
-          } else if (p.IsPrefixedBy(L"1>")) {
-            if (!p.IsPrefixedBy(L"1>>")) {
+          } else if (p.IsPrefixedBy("1>")) {
+            if (!p.IsPrefixedBy("1>>")) {
               redirOut = p.Mid(2, p.Len()-2);
             } else {
               redirOut = p.Mid(3, p.Len()-3);
               appendMode |= 1;
             }
             commandStrings.Delete(i);
-          } else if (p.IsPrefixedBy(L"2>")) {
-            if (!p.IsPrefixedBy(L"2>>")) {
+          } else if (p.IsPrefixedBy("2>")) {
+            if (!p.IsPrefixedBy("2>>")) {
               redirErr = p.Mid(2, p.Len()-2);
             } else {
               redirErr = p.Mid(3, p.Len()-3);
@@ -533,7 +541,11 @@ static int StartInServerMode(UStringVector &commandStrings)
             commandStrings.Delete(i);
           } else if (i > 0) {
             // redirect with 2 parameters (like > file):
+          #ifdef _WIN32
             UString & p2 = commandStrings[--i];
+          #else
+            FString p2 = UnicodeStringToMultiByte(commandStrings[--i]);
+          #endif
             if (p2.Len() < 1 || p2.Len() > 2) {
               break;
             }
@@ -561,17 +573,21 @@ static int StartInServerMode(UStringVector &commandStrings)
         if (!redirIn.IsEmpty()) {
           UInt64 offs = 0;
           // g_StdOut << "  stdin < " << redirIn << endl;
-          if (redirIn.IsPrefixedBy(L"&")) { // <&n
-            const wchar_t *p = redirIn;
+          if (redirIn.IsPrefixedBy("&")) { // <&n
+            const FChar *p = redirIn;
             DWORD nHandle = ConvertStringToUInt32(p+1, &p);
             if (*p != L'\0') {
               throw (UString("Integer expected by <&n"));
             }
+          #ifdef _WIN32
             redirInF = _wfdopen(nHandle, L"rt");
+          #else
+            redirInF = fdopen(nHandle, "r");
+          #endif
           } else {
-            int o = redirIn.Find(L"?offs=");
+            int o = redirIn.Find(MY_FTEXT("?offs="));
             if (o != -1) {
-              const wchar_t *p = redirIn;
+              const FChar *p = redirIn;
               p += o + 6; // move after ?offs=
               offs = ConvertStringToUInt64(p, &p);
               if (*p != L'\0') {
@@ -579,13 +595,17 @@ static int StartInServerMode(UStringVector &commandStrings)
               }
               redirIn.DeleteFrom(o);
             }
+          #ifdef _WIN32
             if (_wfopen_s(&redirInF, redirIn, L"rt") != 0) {
               redirInF = NULL;
             };
+          #else
+            redirInF = fopen(redirIn, "r");
+          #endif
           }
           if (!redirInF) {
             errCode = errno;
-            throw (UString("Can't redirect stdin to ") + redirIn);
+            throw (FString("Can't redirect stdin to ") + redirIn);
           }
           if (offs) {
             int ret;
@@ -596,7 +616,7 @@ static int StartInServerMode(UStringVector &commandStrings)
           #endif
             if (ret == -1) {
               errCode = errno;
-              throw (UString("Can't seek to offs for ") + redirIn);
+              throw (FString("Can't seek to offs for ") + redirIn);
             }
           }
           CStdInFileStream::defIn = redirInF;
@@ -605,42 +625,58 @@ static int StartInServerMode(UStringVector &commandStrings)
         }
         if (!redirErr.IsEmpty()) {
           // g_StdOut << "  stderr > " << redirErr << endl;
-          if (redirErr.IsPrefixedBy(L"&")) { // 2>&n
-            const wchar_t *p = redirErr;
+          if (redirErr.IsPrefixedBy("&")) { // 2>&n
+            const FChar *p = redirErr;
             DWORD nHandle = ConvertStringToUInt32(p+1, &p);
             if (*p != L'\0') {
               throw (UString("Integer expected by 2>&n"));
             }
+          #ifdef _WIN32
             redirErrF = _wfdopen(nHandle, (!(appendMode & 2) ? L"wt" : L"at"));
+          #else
+            redirInF = fdopen(nHandle, (!(appendMode & 2) ? "w" : "a"));
+          #endif
           } else {
+          #ifdef _WIN32
             if (_wfopen_s(&redirErrF, redirErr, (!(appendMode & 2) ? L"wt" : L"at")) != 0) {
               redirErrF = NULL;
             };
+          #else
+            redirErrF = fopen(redirErr, (!(appendMode & 2) ? "w" : "a"));
+          #endif
           }
           if (!redirErrF) {
             errCode = errno;
-            throw (UString("Can't redirect stderr to ") + redirErr);
+            throw (FString("Can't redirect stderr to ") + redirErr);
           }
           g_ErrStream = redirErrStream = new CStdOutStream(redirErrF);
           g_StdErr = *g_ErrStream;
         }
         if (!redirOut.IsEmpty()) {
           // g_StdOut << "  stdout > " << redirOut << endl;
-          if (redirOut.IsPrefixedBy(L"&")) { // >&n
-            const wchar_t *p = redirOut;
+          if (redirOut.IsPrefixedBy("&")) { // >&n
+            const FChar *p = redirOut;
             DWORD nHandle = ConvertStringToUInt32(p+1, &p);
             if (*p != L'\0') {
               throw (UString("Integer expected by >&n"));
             }
+          #ifdef _WIN32
             redirOutF = _wfdopen(nHandle, (!(appendMode & 1) ? L"wt" : L"at"));
+          #else
+            redirOutF = fdopen(nHandle, (!(appendMode & 1) ? "w" : "a"));
+          #endif
           } else {
+          #ifdef _WIN32
             if (_wfopen_s(&redirOutF, redirOut, (!(appendMode & 1) ? L"wt" : L"at")) != 0) {
               redirOutF = NULL;
             };
+          #else
+            redirOutF = fopen(redirOut, (!(appendMode & 1) ? "w" : "a"));
+          #endif
           }
           if (!redirOutF) {
             errCode = errno;
-            throw (UString("Can't redirect stdout to ") + redirOut);
+            throw (FString("Can't redirect stdout to ") + redirOut);
           }
           CStdOutFileStream::defOut = redirOutF;
           CStdOutFileStream::defOutAppendMode = (appendMode & 1);
@@ -1230,10 +1266,6 @@ int Main2(
   // printf("\nAfter  SetLocale() : %s\n", IsNativeUtf8() ? "NATIVE UTF-8" : "IS NOT NATIVE UTF-8");
   #endif
 
-  #ifndef _WIN32
-  const UInt64 startTime = Get_timeofday_us();
-  #endif
-
   /*
   {
     g_StdOut << "DWORD:" << (unsigned)sizeof(DWORD);
@@ -1315,6 +1347,10 @@ static int MainV(
   #endif
 )
 {
+  #ifndef _WIN32
+  const UInt64 startTime = Get_timeofday_us();
+  #endif
+
   if (commandStrings.Size() == 0)
   {
     ShowCopyrightAndHelp(g_StdStream, true);

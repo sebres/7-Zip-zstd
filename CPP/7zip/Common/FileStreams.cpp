@@ -2,9 +2,10 @@
 
 #include "StdAfx.h"
 
+#ifdef _WIN32
 #include <io.h>
-
-#ifndef _WIN32
+#else
+#include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
@@ -249,9 +250,11 @@ Z7_COM7F_IMF(CStdInFileStream::Read(void *data, UInt32 size, UInt32 *processedSi
 #else
 CStdInFileStream::CStdInFileStream()
 {
-  infno = _fileno(defIn);
   #ifdef _WIN32
+  infno = _fileno(defIn);
   infh = (HANDLE)_get_osfhandle(infno);
+  #else
+  infno = fileno(defIn);
   #endif
 }
 
@@ -879,9 +882,11 @@ Z7_COM7F_IMF(CStdOutFileStream::Write(const void *data, UInt32 size, UInt32 *pro
 
 CStdOutFileStream::CStdOutFileStream(): _size(0)
 {
-  outfno = _fileno(defOut);
   #ifdef _WIN32
+  outfno = _fileno(defOut);
   outfh = (HANDLE)_get_osfhandle(outfno);
+  #else
+  outfno = fileno(defOut);
   #endif
 
   // because we use WriteFile below, we'll need to seek to the original position 
@@ -893,7 +898,7 @@ CStdOutFileStream::CStdOutFileStream(): _size(0)
       defOutAppendMode = -1;
     }
   #else
-    if (llseek(outfno, 0, SEEK_END) == -1) {
+    if (lseek(outfno, 0, SEEK_END) == -1) {
       defOutAppendMode = -1;
     }
   #endif

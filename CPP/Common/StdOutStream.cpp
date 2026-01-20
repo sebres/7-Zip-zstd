@@ -4,14 +4,14 @@
 
 #ifdef _WIN32
 #include <tchar.h>
+#include <io.h>
+#include <fcntl.h>
 #endif
 
 #include "IntToString.h"
 #include "StdOutStream.h"
 #include "StringConvert.h"
 #include "UTFConvert.h"
-#include <io.h>
-#include <fcntl.h>
 
 CStdOutStream g_StdOut(stdout);
 CStdOutStream g_StdErr(stderr);
@@ -287,11 +287,13 @@ CStdOutStream & CStdOutStream::operator<<(UInt64 number) throw()
 int CStdOutStream::SetCodePage(int codePage)
 {
   CodePage = codePage;
+#ifdef _WIN32
   if (codePage == CP_UNICODE) {
     _setmode(_fileno(_stream), _O_WTEXT);
   } else {
     _setmode(_fileno(_stream), _O_TEXT);
   }
+#endif
   return 0;
 }
 

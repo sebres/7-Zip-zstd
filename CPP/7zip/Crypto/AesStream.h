@@ -37,12 +37,12 @@ public:
     paddingAdded(false)
     {};
 
-  ~CAesOutStream();
+  virtual ~CAesOutStream();
 
   HRESULT Init(ISequentialOutStream *outStream, UString &password);
 
   Z7_COM_UNKNOWN_IMP_1(ISequentialOutStream)
-  STDMETHOD(Write)(const void *data, UInt32 size, UInt32 *processedSize);
+  STDMETHOD(Write)(const void *data, UInt32 size, UInt32 *processedSize) noexcept override;
 };
 
 class CAesInStream:
@@ -69,14 +69,14 @@ public:
     _raheadBuf(NULL)
     {};
 
-  ~CAesInStream();
+  virtual ~CAesInStream();
 
   HRESULT Init(ISequentialInStream *inStream, UString &password);
 
   HRESULT ReadAhead(void* data, UInt32 size, UInt32* processedSize);
 
   Z7_COM_UNKNOWN_IMP_1(ISequentialInStream)
-  STDMETHOD(Read)(void *data, UInt32 size, UInt32 *processedSize);
+  STDMETHOD(Read)(void *data, UInt32 size, UInt32 *processedSize) noexcept override;
 };
 
 }

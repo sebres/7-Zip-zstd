@@ -4,13 +4,13 @@
 
 #ifdef _WIN32
 #include <tchar.h>
+#include <io.h>
+#include <fcntl.h>
 #endif
 
 #include "StdInStream.h"
 #include "StringConvert.h"
 #include "UTFConvert.h"
-#include <io.h>
-#include <fcntl.h>
 
 // #define kEOFMessage "Unexpected end of input stream"
 // #define kReadErrorMessage "Error reading input stream"
@@ -120,11 +120,13 @@ bool CStdInStream::ReadToString(AString &resultString)
 int CStdInStream::SetCodePage(int codePage)
 {
   CodePage = codePage;
+#ifdef _WIN32
   if (codePage == CP_UNICODE) {
     _setmode(_fileno(_stream), _O_WTEXT);
   } else {
     _setmode(_fileno(_stream), _O_TEXT);
   }
+#endif
   return 0;
 }
 

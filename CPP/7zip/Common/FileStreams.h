@@ -136,7 +136,9 @@ Z7_CLASS_IMP_NOQIB_1(
   , ISequentialInStream
 )
   int infno;
+#ifdef _WIN32
   HANDLE infh;
+#endif
 
 public:
   static FILE *defIn;
@@ -206,7 +208,9 @@ Z7_CLASS_IMP_NOQIB_1(
 )
   UInt64 _size;
   int outfno;
+#ifdef _WIN32
   HANDLE outfh;
+#endif
 public:
   static FILE *defOut;
   static int defOutAppendMode;

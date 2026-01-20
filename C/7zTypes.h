@@ -130,6 +130,7 @@ typedef int WRes;
 #define E_OUTOFMEMORY               ((HRESULT)0x8007000EL)
 #define E_INVALIDARG                ((HRESULT)0x80070057L)
 #define MY_E_ERROR_NEGATIVE_SEEK    ((HRESULT)0x80070083L)
+#define E_UNEXPECTED                ((HRESULT)0x8000FFFFL)
 
 /*
 // we can use FACILITY_ERRNO for some COM errors, that have errno equivalents:
