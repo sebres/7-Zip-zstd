@@ -12,7 +12,7 @@ if {[namespace which -command "::7z"] eq ""} {
 testConstraint openssl [expr {![catch {exec openssl --version}]}]
 
 test z-ext--direct-encryption {7z direct encryption, decription with openssl} -constraints {openssl} -body {
-	variable 7Z_PATH
+	variable Z7_PATH
 	set ke [binary encode hex {`keykeykeykeykeykeykeykeyketkey`}]
 	set iv [binary encode hex {-iviviviviviviv-}]
 	foreach {t l} {zstd 3 brotli 1} {
@@ -25,7 +25,7 @@ test z-ext--direct-encryption {7z direct encryption, decription with openssl} -c
 				set v2 [
 					7z a -t$t -mx$l -si -so -ekey$ke$iv . << "$v" | \
 					openssl enc -aes-256-cbc -nosalt -K "$ke" -iv "$iv" -d | \
-					$7Z_PATH e -t$t -si -so
+					$Z7_PATH e -t$t -si -so
 				]
 				if {$v2 ne $v} {
 					error "retrieved $v2 instead of original"
@@ -40,7 +40,7 @@ test z-ext--direct-encryption {7z direct encryption, decription with openssl} -c
 } -result OK
 
 test z-ext--direct-encrypt-decrypt {7z direct encryption, decription} {
-	variable 7Z_PATH
+	variable Z7_PATH
 	set ke [binary encode hex {`keykeykeykeykeykeykeykeyketkey`}]
 	set iv [binary encode hex {-iviviviviviviv-}]
 	foreach {t l} {zstd 9 brotli 5} {
@@ -52,7 +52,7 @@ test z-ext--direct-encrypt-decrypt {7z direct encryption, decription} {
 				#puts $t\tTL:[string length $v]\tC:[string length [7z_2_bin a -t$t -mx$l -si -so . << "$v"]]\tP:[string length [7z_2_bin a -t$t -mx$l -si -so -ekey$ke$iv . << "$v"]]
 				set v2 [
 					7z a -t$t -mx$l -si -so -ekey$ke$iv . << "$v" | \
-					$7Z_PATH e -t$t -si -so -ekey$ke$iv
+					$Z7_PATH e -t$t -si -so -ekey$ke$iv
 				]
 				#puts $v2
 				if {$v2 ne $v} {
@@ -68,10 +68,10 @@ test z-ext--direct-encrypt-decrypt {7z direct encryption, decription} {
 } OK
 
 test z-ext--decompress-w-offs-length {7z fast decompression of chunk by offset/length} {
-	variable 7Z_REGR_TEST_DIR
+	variable Z7_REGR_TEST_DIR
 	set ret {}
 	# 4 test files, compressed 1M chars, starting with TEST\n and ending with \nEND. and 1M-10 spaces in-between.
-	foreach p [lsort -dictionary [glob -directory $7Z_REGR_TEST_DIR test.txt.*]] {
+	foreach p [lsort -dictionary [glob -directory $Z7_REGR_TEST_DIR test.txt.*]] {
 		if {![regexp {\.txt\.(?:br|zstd)(?:\.7z)?$} $p]} continue
 		lappend ret [file tail $p]
 		if {[catch {
