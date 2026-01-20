@@ -5,8 +5,6 @@ on: [push, pull_request]
 jobs:
 
   linux:
-    # temporary disabled (todo: adjust few files, io-headers includes, etc)
-    if: false
 
     strategy:
       matrix:
