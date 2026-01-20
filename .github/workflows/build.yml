@@ -21,6 +21,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v6
+    - name: Pre-requirements
+      run: |
+        sudo apt-get install openssl || echo 'unable to install openssl?'
+        openssl --version || echo 'no openssl?'
     - name: Configure build system (uasm)
       if: ${{ !matrix.is_arm }}
       run: |
