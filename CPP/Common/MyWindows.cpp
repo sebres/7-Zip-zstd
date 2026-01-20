@@ -300,7 +300,7 @@ bool FileTimeToLocalFileTime2(const FILETIME *fileTime, FILETIME *localFileTime)
   return SystemTimeToFileTime(&locSysTime, localFileTime);
 #else
   return FileTimeToLocalFileTime(fileTime, localFileTime);
-#endif
+#endif // !_WIN32
 }
 
 bool LocalFileTimeToFileTime2(const FILETIME *localFileTime, FILETIME *fileTime)
@@ -311,6 +311,6 @@ bool LocalFileTimeToFileTime2(const FILETIME *localFileTime, FILETIME *fileTime)
   if (!TzSpecificLocalTimeToSystemTime(NULL, &sysTime, &locSysTime)) return 0;
   return SystemTimeToFileTime(&locSysTime, fileTime);
 #else
-  return LocalFileTimeToFileTime2(localFileTime, fileTime);
-#endif
+  return LocalFileTimeToFileTime(localFileTime, fileTime);
+#endif // !_WIN32
 }

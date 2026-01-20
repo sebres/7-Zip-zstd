@@ -17,11 +17,14 @@ cd %SKEL%
 curl %URL% -L -o 7-Zip.exe
 %SZIP% x 7-Zip.exe
 del 7-Zip.exe
-mkdir %WD%\totalcmd
 goto start
 
+@rem doit function ...
 :doit
-echo Doing ARCH=%ARCH% in SOURCE=%BIN%
+SET ARCH=%~1
+SET ZIP32=%~2
+SET BIN=%~3
+echo Doing %ARCH% in SOURCE=%BIN%
 
 REM 7-Zip Files
 cd %SKEL%
@@ -29,7 +32,7 @@ del *.exe *.dll *.sfx
 FOR %%f IN (7z.dll 7z.exe 7z.sfx 7za.dll 7za.exe 7zCon.sfx 7zFM.exe 7zG.exe 7-zip.dll 7zxa.dll Uninstall.exe) DO (
   copy %BIN%\%%f %%f
 )
-IF DEFINED ZIP32 copy %ZIP32% 7-zip32.dll
+IF NOT "%ZIP32%" == "" copy %ZIP32% 7-zip32.dll
 %SZIP% a ..\%ARCH%.7z %COPTS%
 cd %WD%
 copy %BIN%\Install.exe + %ARCH%.7z 7z%VERSION%-zstd-%ARCH%.exe
@@ -46,49 +49,21 @@ curl %LURL%/Codecs/README.md --output README.md
 %SZIP% a ..\Codecs-%ARCH%.7z %COPTS%
 cd %WD% && rd /S /Q Codecs-%ARCH%
 
-REM Total Commander DLL
-cd %WD%\totalcmd
-copy %BIN%\7zxa.dll %TCDLL%
-curl %LURL%/TotalCMD/LICENSE --output LICENSE
-curl %LURL%/TotalCMD/README.md --output README.md
-goto done_%ARCH%
+goto :eof
+@rem end of doit function.
 
-REM Currently we build 3 architectures
+REM Currently we build 3 architectures as 6 targets with and without darkmode (ndm suffix)
 :start
-SET ARCH=x32
-SET ZIP32=
-SET BIN=%WD%\bin-x86
-SET TCDLL=tc7z.dll
-goto doit
-:done_x32
 
-SET ARCH=x64
-SET ZIP32=%WD%\bin-x86\7-zip.dll
-SET BIN=%WD%\bin-x64
-SET TCDLL=tc7z64.dll
-goto doit
-:done_x64
+call :doit x86       ""                            "%WD%\bin-x86"
+call :doit x86-ndm   ""                            "%WD%\bin-x86-ndm"
 
-REM Build of 32-bit ARM is disabled now, since Windows SDK 10.0.26100.0 its support is dropped
-goto done_arm
-SET ARCH=arm
-SET ZIP32=
-SET BIN=%WD%\bin-arm
-SET TCDLL=tc7zarm.dll
-goto doit
-:done_arm
+call :doit x64       "%WD%\bin-x86\7-zip.dll"      "%WD%\bin-x64"
+call :doit x64-ndm   "%WD%\bin-x86-ndm\7-zip.dll"  "%WD%\bin-x64-ndm"
 
-SET ARCH=arm64
-SET ZIP32=%WD%\bin-arm\7-zip.dll
-SET BIN=%WD%\bin-arm64
-SET TCDLL=tc7zarm64.dll
-goto doit
-:done_arm64
-
-cd %WD%\totalcmd
-%SZIP% a ..\TotalCmd.7z %COPTS%
+call :doit arm64     "%WD%\bin-arm\7-zip.dll"      "%WD%\bin-arm64"
+call :doit arm64-ndm "%WD%\bin-arm-ndm\7-zip.dll"  "%WD%\bin-arm64-ndm"
 
 REM cleanup
 cd %WD%
 rd /S /Q %SKEL%
-rd /S /Q %WD%\totalcmd

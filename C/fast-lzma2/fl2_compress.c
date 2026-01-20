@@ -581,7 +581,7 @@ FL2LIB_API size_t FL2LIB_CALL FL2_compressCCtx(FL2_CCtx* cctx,
     if (cctx->params.doXXH && !cctx->params.omitProp) {
         XXH32_canonical_t canonical;
         DEBUGLOG(5, "Writing hash");
-        if(end - dstBuf < XXHASH_SIZEOF)
+        if(end - dstBuf < (long)XXHASH_SIZEOF)
             return FL2_ERROR(dstSize_tooSmall);
         XXH32_canonicalFromHash(&canonical, XXH32(src, srcSize, 0));
         memcpy(dstBuf, &canonical, XXHASH_SIZEOF);
@@ -1078,7 +1078,7 @@ FL2LIB_API size_t FL2LIB_CALL FL2_getNextCompressedBuffer(FL2_CStream* fcs, FL2_
     return cbuf->size;
 }
 
-FL2LIB_API unsigned long long FL2LIB_CALL FL2_getCStreamProgress(const FL2_CStream * fcs, unsigned long long *outputSize)
+FL2LIB_API UInt64 FL2LIB_CALL FL2_getCStreamProgress(const FL2_CStream * fcs, UInt64 *outputSize)
 {
     if (outputSize != NULL)
         *outputSize = fcs->streamCsize + fcs->progressOut;
