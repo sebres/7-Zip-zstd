@@ -30,13 +30,19 @@ testConstraint freeMem9G [expr {[apply {{} {
 
 test regression--test-all {7z regression test for with previous versions compressed files, test with checksum} {
 	variable Z7_REGR_TEST_DIR
-	variable Z7_PWD
 	set ret {}
 	foreach p [lsort -dictionary [glob -directory $Z7_REGR_TEST_DIR *.*]] {
 		set fn [file tail $p]
 		set opt {}
-		if {[string match xenc-* $fn]} { # encrypted with password
-			lappend opt -p$Z7_PWD
+		if {[string match xenc-* $fn]} { # encrypted with password or encryption-key
+			if {[string match xenc-pwd-* $fn]} {
+				variable Z7_PWD
+				lappend opt -p$Z7_PWD
+			} else {
+				variable Z7_EKEY
+				variable Z7_EKIV
+				lappend opt -ekey$Z7_EKEY$Z7_EKIV
+			}
 		}
 		if {[string match *.br-mt.* $fn]} { # brotli-mt (not default, expected -mmt+ switch)
 			lappend opt -mmt+
@@ -83,6 +89,10 @@ test regression--test-all {7z regression test for with previous versions compres
 		{Path test.txt.zstd Type zstd {} {} Size 1000000 SHA256 aeda0f81c8376d1678af53927a08cf641cafab8b68aef509c881eb0be0bc3c97}
 	test.txt.zstd.7z
 		{Path test.txt.zstd.7z Type 7z Method ZSTD Size 1000000 SHA256 aeda0f81c8376d1678af53927a08cf641cafab8b68aef509c881eb0be0bc3c97}
+	xenc-ekey.br
+		{Path xenc-ekey.br Type brotli {} {} Size 1000000 SHA256 aeda0f81c8376d1678af53927a08cf641cafab8b68aef509c881eb0be0bc3c97}
+	xenc-ekey.zstd
+		{Path xenc-ekey.zstd Type zstd {} {} Size 1000000 SHA256 aeda0f81c8376d1678af53927a08cf641cafab8b68aef509c881eb0be0bc3c97}
 	xenc-pwd-sol.zstd.7z
 		{Path xenc-pwd-sol.zstd.7z Type 7z {} {} Size 1100000 SHA256 975929a8472f0c34f13f187152b8d6aa021cbb39ef3c470eb892ab64424c8dbe-00000000 SHA256 bfe35415b7f77943de92e477da109c0ef7748bd41ff6a01a6215905860b694a0-00000000}
 	OK
@@ -137,12 +147,18 @@ test regression--test-mt-option {7z regression test for with previous versions c
 
 test regression--list-tech-info {7z regression test for with previous versions compressed files, list with technical info} {
 	variable Z7_REGR_TEST_DIR
-	variable Z7_PWD
 	set ret {}
 	foreach p [lsort -dictionary [glob -directory $Z7_REGR_TEST_DIR *.*]] {
 		set opt {}
-		if {[string match xenc-* [file tail $p]]} { # encrypted with password
-			set opt -p$Z7_PWD
+		if {[string match xenc-* [file tail $p]]} { # encrypted with password or encryption-key
+			if {[string match xenc-pwd-* [file tail $p]]} {
+				variable Z7_PWD
+				lappend opt -p$Z7_PWD
+			} else {
+				variable Z7_EKEY
+				variable Z7_EKIV
+				lappend opt -ekey$Z7_EKEY$Z7_EKIV
+			}
 		}
 		lappend ret [file tail $p] [7z_get_info {*}$opt -- $p]
 	}
@@ -169,6 +185,10 @@ test regression--list-tech-info {7z regression test for with previous versions c
 		{Path test.txt.zstd Type zstd}
 	test.txt.zstd.7z
 		{Path test.txt.zstd.7z Type 7z Solid - Files {{Path test.txt Size 1000000 Modified 1743632719 CRC C601982A Method ZSTD:l17}}}
+	xenc-ekey.br
+		{Path xenc-ekey.br Type brotli}
+	xenc-ekey.zstd
+		{Path xenc-ekey.zstd Type zstd}
 	xenc-pwd-sol.zstd.7z
 		{Path xenc-pwd-sol.zstd.7z Type 7z Solid + Files {{Path test.txt Size 1000000 Modified 1743632719 CRC C601982A Method ZSTD:l17} {Path tesx.txt Size 100000 Modified 1743709207 CRC 7ECE9EBC Method ZSTD:l17}}}
 	OK
@@ -176,15 +196,21 @@ test regression--list-tech-info {7z regression test for with previous versions c
 
 test regression--decompress {7z regression test for with previous versions compressed files, decompression} {
 	variable Z7_REGR_TEST_DIR
-	variable Z7_PWD
 	set ret {}
 	set regr_arc_data(txt) "TEST\n[string repeat { } 999990]\nEND."
 	set regr_arc_data(sol) "$regr_arc_data(txt)1234\n[string repeat { } 99990]\n5678"
 	foreach p [lsort -dictionary [glob -directory $Z7_REGR_TEST_DIR *.*]] {
 		set fn [file tail $p]
 		set opt {}
-		if {[string match xenc-* $fn]} { # encrypted with password
-			lappend opt -p$Z7_PWD
+		if {[string match xenc-* $fn]} { # encrypted with password or encryption-key
+			if {[string match xenc-pwd-* $fn]} {
+				variable Z7_PWD
+				lappend opt -p$Z7_PWD
+			} else {
+				variable Z7_EKEY
+				variable Z7_EKIV
+				lappend opt -ekey$Z7_EKEY$Z7_EKIV
+			}
 		}
 		if {[string match *.br-mt.* $fn]} { # brotli-mt (not default, expected -mmt+ switch)
 			lappend opt -mmt+
@@ -209,6 +235,8 @@ test regression--decompress {7z regression test for with previous versions compr
 	test.txt.br.7z   1
 	test.txt.zstd    1
 	test.txt.zstd.7z 1
+	xenc-ekey.br 1
+	xenc-ekey.zstd 1
 	xenc-pwd-sol.zstd.7z 1
 }]
 

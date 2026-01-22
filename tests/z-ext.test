@@ -13,7 +13,8 @@ testConstraint openssl [expr {![catch {exec openssl version}]}]
 
 test z-ext--direct-encryption {7z direct encryption, decription with openssl} -constraints {openssl} -body {
 	variable Z7_PATH
-	set ke [binary encode hex {`keykeykeykeykeykeykeykeyketkey`}]
+	variable Z7_EKEY
+	variable Z7_EKIV
 	set iv [binary encode hex {-iviviviviviviv-}]
 	foreach {t l} {zstd 3 brotli 1} {
 		# to test PKCS#7 padding is correct, we will use different length...
@@ -21,10 +22,10 @@ test z-ext--direct-encryption {7z direct encryption, decription with openssl} -c
 		while {$v ne ""} {
 			# compress with encryption, decrypt with openssl, decompress:
 			if {[catch {
-				#puts $t\tTL:[string length $v]\tC:[string length [7z_2_bin a -t$t -mx3 -si -so . << "$v"]]\tP:[string length [7z_2_bin a -t$t -mx3 -si -so -ekey$ke$iv . << "$v"]]
+				#puts $t\tTL:[string length $v]\tC:[string length [7z_2_bin a -t$t -mx3 -si -so . << "$v"]]\tP:[string length [7z_2_bin a -t$t -mx3 -si -so -ekey$Z7_EKEY$Z7_EKIV . << "$v"]]
 				set v2 [
-					7z a -t$t -mx$l -si -so -ekey$ke$iv . << "$v" | \
-					openssl enc -aes-256-cbc -nosalt -K "$ke" -iv "$iv" -d | \
+					7z a -t$t -mx$l -si -so -ekey$Z7_EKEY$Z7_EKIV . << "$v" | \
+					openssl enc -aes-256-cbc -nosalt -K "$Z7_EKEY" -iv "$Z7_EKIV" -d | \
 					$Z7_PATH e -t$t -si -so
 				]
 				if {$v2 ne $v} {
@@ -41,18 +42,18 @@ test z-ext--direct-encryption {7z direct encryption, decription with openssl} -c
 
 test z-ext--direct-encrypt-decrypt {7z direct encryption, decription} {
 	variable Z7_PATH
-	set ke [binary encode hex {`keykeykeykeykeykeykeykeyketkey`}]
-	set iv [binary encode hex {-iviviviviviviv-}]
+	variable Z7_EKEY
+	variable Z7_EKIV
 	foreach {t l} {zstd 9 brotli 5} {
 		# to test PKCS#7 padding is correct, we will use different length...
 		set v "test zstd & brotli 0123456789-ABCEFGHIJKLMNOPQRSTUVWXYZ?_*."
 		while {$v ne ""} {
 			# compress with encryption, decompress with encryption:
 			if {[catch {
-				#puts $t\tTL:[string length $v]\tC:[string length [7z_2_bin a -t$t -mx$l -si -so . << "$v"]]\tP:[string length [7z_2_bin a -t$t -mx$l -si -so -ekey$ke$iv . << "$v"]]
+				#puts $t\tTL:[string length $v]\tC:[string length [7z_2_bin a -t$t -mx$l -si -so . << "$v"]]\tP:[string length [7z_2_bin a -t$t -mx$l -si -so -ekey$Z7_EKEY$Z7_EKIV . << "$v"]]
 				set v2 [
-					7z a -t$t -mx$l -si -so -ekey$ke$iv . << "$v" | \
-					$Z7_PATH e -t$t -si -so -ekey$ke$iv
+					7z a -t$t -mx$l -si -so -ekey$Z7_EKEY$Z7_EKIV . << "$v" | \
+					$Z7_PATH e -t$t -si -so -ekey$Z7_EKEY$Z7_EKIV
 				]
 				#puts $v2
 				if {$v2 ne $v} {

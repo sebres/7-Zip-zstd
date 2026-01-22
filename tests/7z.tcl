@@ -12,6 +12,8 @@ if {[namespace which -command "::test"] eq ""} {
 variable Z7_PATH
 variable Z7_REGR_TEST_DIR [file join [file dirname [info script]] regr-arc]
 variable Z7_PWD "very-secret-pwd"
+variable Z7_EKEY [binary encode hex {`keykeykeykeykeykeykeykeyketkey`}]
+variable Z7_EKIV [binary encode hex {-iviviviviviviv-}]
 
 if {[info exists ::env(Z7_PATH)]} {
 	set Z7_PATH $::env(Z7_PATH)
