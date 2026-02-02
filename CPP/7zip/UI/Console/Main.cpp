@@ -1359,6 +1359,7 @@ static int MainV(
 
   if (commandStrings.Size() == 1 && commandStrings[0] == L"--version") {
     *g_StdStream << kVersionString;
+    *g_StdStream << "\n";
     return 0;
   }
 
