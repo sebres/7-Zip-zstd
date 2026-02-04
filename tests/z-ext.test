@@ -15,7 +15,6 @@ test z-ext--direct-encryption {7z direct encryption, decription with openssl} -c
 	variable Z7_PATH
 	variable Z7_EKEY
 	variable Z7_EKIV
-	set iv [binary encode hex {-iviviviviviviv-}]
 	foreach {t l} {zstd 3 brotli 1} {
 		# to test PKCS#7 padding is correct, we will use different length...
 		set v "test zstd & brotli 0123456789-ABCEFGHIJKLMNOPQRSTUVWXYZ?_*."
