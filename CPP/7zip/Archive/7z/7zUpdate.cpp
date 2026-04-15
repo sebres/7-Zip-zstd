@@ -721,7 +721,7 @@ static int CompareEmptyItems(const unsigned *p1, const unsigned *p2, void *param
   return (u1.IsDir && u1.IsAnti) ? -n : n;
 }
 
-static const char *g_Exts =
+static const char * const g_Exts =
   " 7z xz lzma lzma2 ace arc arj bz tbz bz2 tbz2 cab deb gz tgz ha lha liz tliz lz tlz lz4 tlz4 lz5 tlz5 lzh lzo lzx pak rar rpm sit zoo zst tzst zstd tzstd"
   " zip jar ear war msi"
   " 3gp avi mov mpeg mpg mpe wmv"

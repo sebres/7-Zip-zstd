@@ -25,6 +25,8 @@ UInt64 CDecoder::GetInputProcessedSize() const
     return _deflateDecoder->GetInputProcessedSize();
   if (_bzDecoder)
     return _bzDecoder->GetInputProcessedSize();
+  if (_zstdDecoder)
+    return _zstdDecoder->GetInputProcessedSize();
   return 0;
 }
 
@@ -54,6 +56,10 @@ HRESULT CDecoder::Init(ISequentialInStream *inStream, bool &useFilter)
       case NMethodType::kLZMA:
         _lzmaDecoder = new NCompress::NLzma::CDecoder();
         _codecInStream = _lzmaDecoder;
+        break;
+      case NMethodType::kZstd:
+        _zstdDecoder = new NCompress::NZSTD::CDecoder();
+        _codecInStream = _zstdDecoder;
         break;
       default: return E_NOTIMPL;
     }
