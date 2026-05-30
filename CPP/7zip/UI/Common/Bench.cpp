@@ -3058,11 +3058,11 @@ AString GetProcessThreadsInfo(const NSystem::CProcessAffinity &ti)
 
 #ifdef _WIN32
 extern bool g_LargePagesMode;
+#endif
 extern "C"
 {
-  extern SIZE_T g_LargePageSize;
+  extern size_t g_LargePageSize;
 }
-#endif
 
 void Add_LargePages_String(AString &s)
 {
@@ -3077,10 +3077,14 @@ void Add_LargePages_String(AString &s)
     #endif
     if (!g_LargePagesMode)
       s += "-NA";
-    s += ")";
+    s.Add_Char(')');
   }
   #else
-    s += "";
+  if (g_LargePageSize != 0)
+  {
+    s.Add_OptSpaced(" (LP)");
+    // PrintSize_KMGT_Or_Hex(s, g_LargePageSize);
+  }
   #endif
 }
 
