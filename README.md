@@ -55,7 +55,7 @@ differently (plugin-capable vs. standalone), which can affect available formats/
 
 The output should look like this:
 ```
-7-Zip 26.01 ZS v1.5.7 (x64) : Copyright (c) 1999- Igor Pavlov, 2016- Tino Reichardt, 2022- Sergey G. Brester : 2026-05-30
+7-Zip 26.02 ZS v1.5.7 (x64) : Copyright (c) 1999- Igor Pavlov, 2016- Tino Reichardt, 2022- Sergey G. Brester : 2026-05-30
 
 Libs:
  0  c:\Program Files\7-Zip-Zstandard\7z.dll
@@ -265,8 +265,11 @@ Codecs:
 
 ## Codec Plugin for Total Commander
 
-There is no dedicated plugin for [Total Commander](https://www.ghisler.com/) anymore,
-and it seems that the files `tc7z.dll` and `tc7z64.dll` cannot simply be replaced at the moment.
+- download [TotalCmd.7z]
+- install it, by replacing the files `tc7z.dll` and `tc7z64.dll` with the new ones
+- you can get detailed information about this [here](https://github.com/mcmilk/7-Zip-zstd/issues/467)
+- compressiojn and decompression for [Brotli], [Lizard], [LZ4], [LZ5] and [Zstandard] of the 7-Zip `.7z`
+  format should work out of the box with Total Commander now :-)
 
 ## Codec Plugin for Far Manager
 - copy the `7z.dll` file from `C:\Program Files\7-Zip-Zstandard\7z.dll` to `C:\Program Files\Far Manager\Plugins\ArcLite\7z.dll`
@@ -303,7 +306,7 @@ Results:
 - FileManager Toolbar Icon Theme: Glyfz 2016 by AlexGal [homepage](https://www.deviantart.com/alexgal23)
 - File Types Icon Theme: Windows 10 by masamunecyrus [homepage](https://www.deviantart.com/masamunecyrus)
 - Additional icons file types created by Mr4Mike4 [homepage](https://github.com/Mr4Mike4)
-- Dark mode support via darkmodelib (v0.47.0) by ozone10 [homepage](https://github.com/ozone10)
+- Dark mode support via darkmodelib (v0.64.0) by ozone10 [homepage](https://github.com/ozone10)
 
 ## License and Redistribution
 
@@ -326,7 +329,7 @@ You find this project useful, maybe you consider a donation ;-)
 
 ## Version Information
 
-- 7-Zip ZS Version 26.01 - Release 1
+- 7-Zip ZS Version 26.02 - Release 1
   - [Brotli] Version 1.2.0
   - [Fast LZMA2] Version 1.0.1
   - [Lizard] Version 2.1
@@ -334,11 +337,11 @@ You find this project useful, maybe you consider a donation ;-)
   - [LZ5] Version 1.5
   - [Zstandard] Version 1.5.7
 
-/TR 2026-05-30
+/TR 2026-06-27
 
 ## Notes
 
-- if you want an code signed installer, you need to donate sth.
+We are planning a to use a code signed installer again, https://github.com/mcmilk/7-Zip-zstd/issues/473
 
 [7-Zip]:https://www.7-zip.org/
 [lzip]:https://www.nongnu.org/lzip/
@@ -348,7 +351,6 @@ You find this project useful, maybe you consider a donation ;-)
 [LZ5]:https://github.com/inikep/lz5/
 [Zstandard]:https://github.com/facebook/zstd/
 [Lizard]:https://github.com/inikep/lizard/
-[ImDisk]:https://sourceforge.net/projects/imdisk-toolkit/
 [Fast LZMA2]:https://github.com/conor42/fast-lzma2
 [Codecs.7z]:https://github.com/mcmilk/7-Zip-zstd/releases
 [TotalCmd.7z]:https://github.com/mcmilk/7-Zip-zstd/releases

@@ -813,7 +813,7 @@ struct CItem
   int Parent;
   UInt32 Ptr;
 
-  CItem(): Node(-1), Parent(-1), Ptr(0) {}
+  void Construct() { Node = -1; Parent = -1; Ptr = 0; }
 };
 
 struct CData
@@ -1119,12 +1119,14 @@ static HRESULT Lz4Decode(Byte *dest, SizeT *destLen, const Byte *src, SizeT *src
   char *Dst = (char *)dest;
   int compressedSize = (int)*srcLen;
   int dstCapacity = (int)*destLen;
+
   // int LZ4_decompress_safe (const char* src, char* dst, int compressedSize, int dstCapacity);
   int rv = LZ4_decompress_safe(Src, Dst, compressedSize, dstCapacity);
-  if (rv == 0)
+  if (rv <= 0)
     return S_FALSE;
 
-  *destLen = rv;
+  *destLen = (SizeT)rv;
+  *srcLen = (SizeT)compressedSize;
   return S_OK;
 }
 
@@ -1284,6 +1286,7 @@ HRESULT CHandler::Decompress(ISequentialOutStream *outStream, Byte *outBuf, bool
     if (outBuf)
     {
       *outBufWasWritten = true;
+      // TODO: Decompress should validate destLen <= outSizeMax before storing outBufWasWrittenSize
       *outBufWasWrittenSize = (UInt32)destLen;
     }
     else
@@ -1470,7 +1473,7 @@ HRESULT CHandler::OpenDir(int parent, UInt32 startBlock, UInt32 offset, unsigned
       if (rem == 0)
         return S_FALSE;
 
-      UInt32 nameOffset = _h.GetFileNameOffset();
+      const UInt32 nameOffset = _h.GetFileNameOffset();
       if (rem < nameOffset)
         return S_FALSE;
 
@@ -1478,7 +1481,7 @@ HRESULT CHandler::OpenDir(int parent, UInt32 startBlock, UInt32 offset, unsigned
         return S_FALSE;
       if (_openCallback)
       {
-        UInt64 numFiles = _items.Size();
+        const UInt64 numFiles = _items.Size();
         if ((numFiles & 0xFFFF) == 0)
         {
           RINOK(_openCallback->SetCompleted(&numFiles, NULL))
@@ -1486,6 +1489,7 @@ HRESULT CHandler::OpenDir(int parent, UInt32 startBlock, UInt32 offset, unsigned
       }
       
       CItem item;
+      item.Construct();
       item.Ptr = (UInt32)(p - (const Byte *)_dirs.Data);
 
       UInt32 size;
@@ -2127,6 +2131,11 @@ HRESULT CHandler::ReadBlock(UInt64 blockIndex, Byte *dest, size_t blockSize)
     compressed = IS_COMPRESSED_BLOCK(frag.Size);
   }
 
+  /* TODO:
+   * ReadBlock should bound offsetInBlock + blockSize against _h.BlockSize
+   * (the actual allocation size), not the decoder-reported _cachedUnpackBlockSize
+   */
+
   if (packBlockSize == 0)
   {
     // sparse file ???
@@ -2140,7 +2149,7 @@ HRESULT CHandler::ReadBlock(UInt64 blockIndex, Byte *dest, size_t blockSize)
     ClearCache();
     RINOK(Seek2(blockOffset))
     _limitedInStream->Init(packBlockSize);
-    
+
     if (compressed)
     {
       _outStream->Init((Byte *)_cachedBlock, _h.BlockSize);
@@ -2167,8 +2176,10 @@ HRESULT CHandler::ReadBlock(UInt64 blockIndex, Byte *dest, size_t blockSize)
   if (_cachedUnpackBlockSize < offsetInBlock ||
       _cachedUnpackBlockSize - offsetInBlock < blockSize)
     return S_FALSE;
+
   if (blockSize != 0)
     memcpy(dest, _cachedBlock + offsetInBlock, blockSize);
+
   return S_OK;
 }
 
