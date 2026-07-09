@@ -3,7 +3,7 @@ REM Build some release of 7-Zip ZS
 
 SET COPYCMD=/Y /B
 SET COPTS=-m0=lzma -mx9 -ms=on -mf=bcj2
-SET URL=https://www.7-zip.org/a/7z2601.exe
+SET URL=https://www.7-zip.org/a/7z2602.exe
 SET VERSION=26.01
 SET SZIP="C:\Program Files\7-Zip\7z.exe"
 SET LURL=https://raw.githubusercontent.com/mcmilk/7-Zip-zstd/master/CPP/7zip/Bundles
@@ -16,7 +16,9 @@ mkdir %WD%\totalcmd
 mkdir %SKEL%
 cd %SKEL%
 curl %URL% -L -o 7-Zip.exe
+IF %errorlevel% NEQ 0 EXIT 1
 %SZIP% x 7-Zip.exe
+IF %errorlevel% NEQ 0 EXIT 1
 del 7-Zip.exe
 goto start
 
