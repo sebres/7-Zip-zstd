@@ -967,7 +967,7 @@ int Z7_CDECL main(int numargs, char *args[])
           break;
         }
 
-        if (len > tempSize)
+        if (len > tempSize || !temp)
         {
           SzFree(NULL, temp);
           tempSize = len;

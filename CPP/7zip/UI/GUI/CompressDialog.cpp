@@ -1798,11 +1798,6 @@ void CCompressDialog::SetMethod2(int keepMethodId)
   _auto_MethodId = -1;
   const CFormatInfo &fi = g_Formats[GetStaticFormatIndex()];
   const CArcInfoEx &ai = Get_ArcInfoEx();
-  if (GetLevel() == 0 && !ai.Flags_HashHandler())
-  {
-    MethodChanged();
-    return;
-  }
   UString defaultMethod;
   int defaultLevel = 5;
   {

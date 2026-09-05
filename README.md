@@ -55,7 +55,7 @@ differently (plugin-capable vs. standalone), which can affect available formats/
 
 The output should look like this:
 ```
-7-Zip 26.02 ZS v1.5.7 R2 : Copyright (c) 1999- Igor Pavlov, 2016- Tino Reichardt, 2022- Sergey G. Brester : 2026-07-09
+7-Zip 26.03 ZS v1.5.7 R1 : Copyright (c) 1999- Igor Pavlov, 2016- Tino Reichardt, 2022- Sergey G. Brester : 2026-09-05
 
 Libs:
  0  c:\Program Files\7-Zip-Zstandard\7z.dll
@@ -329,7 +329,7 @@ You find this project useful, maybe you consider a donation ;-)
 
 ## Version Information
 
-- 7-Zip ZS Version 26.02 - Release 2
+- 7-Zip ZS Version 26.03 - Release 1
   - [Brotli] Version 1.2.0
   - [Fast LZMA2] Version 1.0.1
   - [Lizard] Version 2.1

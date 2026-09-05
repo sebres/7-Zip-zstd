@@ -258,12 +258,20 @@ Z7_COM7F_IMF(CHandler::Extract(const UInt32 *indices, UInt32 numItems,
 
   NCompress::NBROTLI::CDecoder *decoderSpec = new NCompress::NBROTLI::CDecoder;
   /*
-   * Brotli stream doesn't contain info about threads and it is normally
-   * single-threaded by default (.br files without header/mt-frames),
-   * so force it here as 0 for brotli-st, unless it's specified (e. g. was compressed
-   * also multi-threaded, important for -mmt>=1 to use brotli-mt instead of brotli-st)
+   * Pass threads only if the user explicitly forced a thread count via -mmt.
+   * If it is not specified by user, BROTLIMT_decompressDCtx() (see
+   * C/zstdmt/brotli-mt_decompress.c) always peeks the stream's own content
+   * for the brotli-mt skippable-frame container magic and decides raw-st
+   * vs. framed-mt decoding from that, promoting threads to max-processor by
+   * itself if the container is present.
+   * So a file produced with -mmt can still be read correctly even
+   * when -mmt is not given on this extract/test invocation. Forcing a
+   * mode or count via -mmt is still possible and would win over auto detection.
    */
-  decoderSpec->SetNumberOfThreads(!_props._numThreads_WasForced ? 0 : _props._numThreads);
+  decoderSpec->_numThreads_WasForced = _props._numThreads_WasForced ? 1 : 0;
+  if (_props._numThreads_WasForced) {
+    decoderSpec->SetNumberOfThreads(_props._numThreads);
+  }
   CMyComPtr<ICompressCoder> decoder = decoderSpec;
   decoderSpec->SetInStream(
     #ifndef _NO_CRYPTO
@@ -366,6 +374,7 @@ static HRESULT UpdateArchive(
   localProgressSpec->Init(updateCallback, true);
   NCompress::NBROTLI::CEncoder *encoderSpec = new NCompress::NBROTLI::CEncoder;
   encoderSpec->unpackSize = unpackSize;
+  encoderSpec->_numThreads_WasForced = 1;
   encoderSpec->SetNumberOfThreads(0); /* .br - single threaded processing (without header/mt-frames) */
   CMyComPtr<ICompressCoder> encoder = encoderSpec;
   res = props.SetCoderProps(encoderSpec, NULL);

@@ -309,6 +309,11 @@ bool CHandler::IsFolderEncrypted(CNum folderIndex) const
     inByte.SkipDataNoCheck(idSize);
     if (id64 == k_AES)
       return true;
+    if ((mainByte & 0x10) != 0)
+    {
+      inByte.ReadNum(); // NumInStreams
+      inByte.ReadNum(); // NumOutStreams
+    }
     if ((mainByte & 0x20) != 0)
       inByte.SkipDataNoCheck(inByte.ReadNum());
   }
@@ -485,7 +490,7 @@ HRESULT CHandler::ObtainBlockMethods(CNum folderIndex, PROPVARIANT *prop, CHandl
             const UInt32 lp = d % 5;
             if (lc != 3) dest = AddProp32(dest, "lc", lc);
             if (lp != 0) dest = AddProp32(dest, "lp", lp);
-            if (pb != 2) dest = AddProp32(dest, "pb", pb);
+            if (pb != 2) /* dest = */ AddProp32(dest, "pb", pb);
           }
         }
         break;

@@ -90,7 +90,7 @@ IF %errorlevel% NEQ 0 (
 )
 copy %PLATFORM%\%~2 %OUTDIR%\%out%
 IF %errorlevel% NEQ 0 (
-  IF %STOP_ON_ERROR% NEQ 0 EXIT 1
+  set /A ERR_COUNT=ERR_COUNT+1
   exit /b 1
 )
 goto :eof

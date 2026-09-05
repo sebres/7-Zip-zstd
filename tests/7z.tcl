@@ -41,7 +41,8 @@ apply {{} {
 proc 7z {args} {
 	variable Z7_PATH
 	variable Last7zLog
-	set Last7zLog [exec $Z7_PATH {*}$args]
+	catch {exec $Z7_PATH {*}$args} Last7zLog opt
+	return {*}$opt $Last7zLog
 }
 
 proc 7z_2_bin {args} {
@@ -110,6 +111,15 @@ proc assertLogged {args} {
 	foreach re $args {
 		if {![regexp $re $Last7zLog]} {
 			return -code error "$re cannot be found in last std-output:\n[string repeat = 40]\n$Last7zLog\n[string repeat = 40]\n"
+		}
+	}
+}
+
+proc assertNotLogged {args} {
+	variable Last7zLog
+	foreach re $args {
+		if {[regexp $re $Last7zLog]} {
+			return -code error "$re was found in last std-output:\n[string repeat = 40]\n$Last7zLog\n[string repeat = 40]\n"
 		}
 	}
 }

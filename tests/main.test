@@ -76,6 +76,51 @@ test main--pipe-a-to-e {7z simple compression / decompression via std-pipes} {
 	set _ OK
 } OK
 
+test main--pipe-a-to-e-mx0 {7z simple compression / decompression via std-pipes, level 0} {
+	variable Z7_PATH
+	foreach t {zstd brotli bzip2 xz gzip lz4 lz5 lizard} {
+		if {[catch {
+			7z a -t$t -mx0 -si -so << "$t: This is a test string passed to stdin" . | $Z7_PATH e -t$t -si -so
+		} res]} {
+			error "Test of -t$t failed: $res"
+		}
+		assertLogged "^$t: This is a test string passed to stdin$"
+	}
+	set _ OK
+} OK
+
+test main--compress-mx0 {7z simple compression / decompression, level 0} -setup {
+	set tmpdir [file join [temporaryDirectory] 7z-test-[format %x-%lx [pid] [clock microseconds]]]
+	file mkdir $tmpdir
+} -body {
+	variable Z7_PATH
+	foreach t {zstd brotli LZMA2 lz4 lz5 lizard} {
+		set arcpath [file join $tmpdir test.$t.7z]
+		set v "$t: This is a test string passed to stdin"
+		if {[catch {
+			# compress:
+			7z a -t7z -m0=$t:x0 -sitest.txt -- $arcpath . << "$v"
+			assertLogged {\nCreating archive} \
+				{\nAdd new data to archive: 1 file} \
+				{\nEverything is Ok}
+			# test:
+			7z t -- $arcpath
+			assertLogged {\nEverything is Ok}
+			# decompress:
+			set v2 [7z e -so -- $arcpath]
+			#puts $v2
+			if {$v2 ne $v} {
+				error "retrieved $v2 instead of original"
+			}
+		} res]} {
+			error "Test of -t$t failed: $res"
+		}
+	}
+	set _ OK
+} -cleanup {
+	file delete -force $tmpdir
+} -result OK
+
 test main--mmt-option {7z force multi-threaded & single-threaded compression / decompression} {
 	variable Z7_PATH
 	foreach mt {=on =off =1 =2 d2 d-2 p25u1 p1+1} {

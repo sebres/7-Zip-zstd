@@ -76,6 +76,11 @@ CDecoder::CDecoder():
   _inputSize(0),
   _numThreads(NWindows::NSystem::GetNumberOfProcessors())
 {
+  // GetNumberOfProcessors() is uncapped and sums all processor groups, while
+  // LIZARDMT_createDCtx() only accepts up to LIZARDMT_THREAD_MAX.
+  // LizardHandler never calls SetNumberOfThreads(), so clamp here too.
+  if (_numThreads > (UInt32)LIZARDMT_THREAD_MAX)
+    _numThreads = (UInt32)LIZARDMT_THREAD_MAX;
   _props.clear();
 }
 
@@ -146,14 +151,16 @@ HRESULT CDecoder::CodeSpec(ISequentialInStream * inStream,
 
   /* 3) decompress */
   result = LIZARDMT_decompressDCtx(ctx, &rdwr);
+
+  /* 4) free resources */
+  LIZARDMT_freeDCtx(ctx);
+
   if (LIZARDMT_isError(result)) {
     if (result == (size_t)-LIZARDMT_error_canceled)
       return E_ABORT;
     return E_FAIL;
   }
 
-  /* 4) free resources */
-  LIZARDMT_freeDCtx(ctx);
   return res;
 }
 

@@ -228,6 +228,15 @@ HRESULT CompressFiles(
     {
       char temp[64];
       const NCompression::CFormatOptions &fo = m_RegistryInfo.Formats[index];
+      /* (UInt32)(Int32)-1 is the "not specified" marker of CFormatOptions
+         (ZipRegistry.h). Key_Get_UInt32() also returns it for a registry value
+         that is absent, and FindRegistryFormatAlways() appends a default
+         constructed CFormatOptions if the format has no registry key at all.
+         Such a field must not be forwarded as a number.
+         0 in contrast is a real user selection for Level (store) and for
+         BlockLogSize (non-solid), but it is not a value that the dialog can
+         store for Dictionary or NumThreads, hence the different tests below. */
+      const UInt32 kNotDefined = (UInt32)(Int32)-1;
 
       if (!fo.Method.IsEmpty())
       {
@@ -235,14 +244,15 @@ HRESULT CompressFiles(
         params += fo.Method;
       }
 
-      if (fo.Level)
+      // level 0 (store) is a valid value, so it must be sent too
+      if (fo.Level != kNotDefined)
       {
         params += " -mx=";
         ConvertUInt32ToString(fo.Level, temp);
         params += temp;
       }
 
-      if (fo.Dictionary && (arcType == L"7z"))
+      if (fo.Dictionary && fo.Dictionary != kNotDefined && (arcType == L"7z"))
       {
         params += " -md=";
         ConvertUInt32ToString(fo.Dictionary, temp);
@@ -250,19 +260,43 @@ HRESULT CompressFiles(
         params += "b";
       }
 
-      if (fo.BlockLogSize && (arcType == L"7z"))
+      if (fo.BlockLogSize != kNotDefined && (arcType == L"7z"))
       {
+        /* keep in sync with CCompressDialog::OnOK() in
+           CPP/7zip/UI/GUI/CompressDialog.cpp (solidLogSize -> SolidBlockSize):
+           0 : non-solid, >= 64 : fully solid, other : (1 << BlockLogSize).
+           kSolidLog_FullSolid is 64, so the old (1ULL << BlockLogSize) was
+           also undefined behaviour for the "Solid" entry of the dialog. */
+        UInt64 solidBlockSize = 0;
+        if (fo.BlockLogSize != 0)
+          solidBlockSize = (fo.BlockLogSize >= 64) ?
+              (UInt64)(Int64)-1 :
+              ((UInt64)1 << fo.BlockLogSize);
         params += " -ms=";
-        ConvertUInt64ToString(1ULL << fo.BlockLogSize, temp);
+        ConvertUInt64ToString(solidBlockSize, temp);
         params += temp;
         params += "b";
       }
 
-      if (fo.NumThreads && fo.NumThreads != -1)
+      if (fo.NumThreads && fo.NumThreads != kNotDefined)
       {
         params += " -mmt=";
         ConvertUInt32ToString(fo.NumThreads, temp);
         params += temp;
+      }
+
+      /* the "Memory usage" limit of the dialog. CCompressDialog stores it as
+         the spec string that CMemUse::Parse() understands ("70%", "2G", ...),
+         and as an empty string for the default entry. The dialog sends the
+         same limit as the "memuse" property, only spelled differently: it
+         re-serializes the parsed value, so an absolute limit goes out as
+         "<bytes>b" (SetOutProperties() / AddProp_Size() in UpdateGUI.cpp).
+         Both spellings reach the same ParseSizeString(), so forwarding the
+         stored string is equivalent. */
+      if (!fo.MemUse.IsEmpty())
+      {
+        params += " -mmemuse=";
+        params += fo.MemUse;
       }
 
       if (!fo.Options.IsEmpty())

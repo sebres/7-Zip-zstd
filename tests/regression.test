@@ -115,15 +115,39 @@ test regression--test-brotli-mt {7z regression test for with previous versions c
 	variable Z7_REGR_TEST_DIR
 	set ret {}
 	set p [file join $Z7_REGR_TEST_DIR test.txt.br-mt.br]
-	# by default mt is off, cover all possible variants of switches to force mt-on via cmd-line,
+	# by default mt is off, besides auto-detection, cover all possible variants of switches to force mt-on via cmd-line,
 	# especially with -mmt=1, -mmtd100 (-100) and -mmtp1d1 (1%-1) shall use brotli-mt decompression (even by single CPU to process):
-	foreach opt {-mmt -mmt+ -mmt=on -mmt=1 -mmtp100 -mmtu100 -mmtd100 -mmtp1d1} {
+	foreach opt {{} -mmt -mmt+ -mmt=on -mmt=1 -mmtp100 -mmtu100 -mmtd100 -mmtp1d1} {
 		7z t -scrcSHA256 {*}$opt -- $p
 		assertLogged "Everything is Ok"
 		lappend ret 1
 	}
 	set ret
-} [lrepeat 8 1]
+} [lrepeat 9 1]
+
+test regression--test-brotli-st-with-mt {7z regression test for with previous versions compressed files (brotli-st, but specified mt)} -body {
+	variable Z7_REGR_TEST_DIR
+	set ret {}
+	set p [file join $Z7_REGR_TEST_DIR test.txt.br]
+	# test of stream created with st-brotli must fail decompressing with mt-brotli:
+	foreach opt {-mmt -mmt+ -mmt=on -mmt=1 -mmtp100 -mmtu100 -mmtd100 -mmtp1d1} {
+		lappend ret [catch {7z t -scrcSHA256 {*}$opt -- $p} res] $res
+		assertNotLogged "Everything is Ok"
+	}
+	set ret
+} -match glob -result [lrepeat 8 1 "*ERROR: *"]
+
+test regression--test-brotli-mt-with-st {7z regression test for with previous versions compressed files (brotli-mt, but specified st)} -body {
+	variable Z7_REGR_TEST_DIR
+	set ret {}
+	set p [file join $Z7_REGR_TEST_DIR test.txt.br-mt.br]
+	# test of stream created with mt-brotli must fail decompressing with st-brotli:
+	foreach opt {-mmt- -mmt=off -mmt=0} {
+		lappend ret [catch {7z t -scrcSHA256 {*}$opt -- $p} res] $res
+		assertNotLogged "Everything is Ok"
+	}
+	set ret
+} -match glob -result [lrepeat 3 1 "*ERROR: *"]
 
 test regression--test-mt-option {7z regression test for with previous versions compressed files (7z, different mmt switches)} {
 	variable Z7_REGR_TEST_DIR
@@ -131,7 +155,7 @@ test regression--test-mt-option {7z regression test for with previous versions c
 	foreach p [lsort -dictionary [glob -directory $Z7_REGR_TEST_DIR test.txt.*]] {
 		if {![regexp {\.txt(?:\.(?:br|zstd))?\.7z$} $p]} continue
 		set i 0
-		foreach opt {-m0=:mt- -m0=:mtoff -m0=:mt0 -m0=:mt -m0=:mt+ -m0=:mton -m0=:mt1 -m0=:mtp100 -m0=:mt0u100 -m0=:mtd2 -m0=:mtp1+1} {
+		foreach opt {-mmt=off -m0=:mt- -m0=:mtoff -m0=:mt0 -m0=:mt -m0=:mt+ -m0=:mton -m0=:mt1 -m0=:mtp100 -m0=:mt0u100 -m0=:mtd2 -m0=:mtp1+1} {
 			7z t {*}$opt -- $p
 			assertLogged "Everything is Ok"
 			incr i
@@ -140,10 +164,38 @@ test regression--test-mt-option {7z regression test for with previous versions c
 	}
 	join $ret \n
 } [join {
-	{test.txt.7z 11}
-	{test.txt.br.7z 11}
-	{test.txt.zstd.7z 11}
+	{test.txt.7z 12}
+	{test.txt.br.7z 12}
+	{test.txt.zstd.7z 12}
 } \n]
+
+test regression--test-brotli-st-within-7z {7z regression test for with previous versions compressed files (brotli-st in 7z)} {
+	variable Z7_REGR_TEST_DIR
+	set p [file join $Z7_REGR_TEST_DIR err/test.txt.br-st.7z]
+	# test of mistakenly created st-brotli within 7z (must succeed decompressing by -mmt=off):
+	7z t -scrcSHA256 -mmt=off -- $p
+	assertLogged "Everything is Ok"
+	set ret 1
+} 1
+
+set tmpdir [file join [temporaryDirectory] 7z-test-[format %x-%lx [pid] [clock microseconds]]]
+file mkdir $tmpdir
+
+test regression--test-brotli-mt-within-7z {7z regression test for brotli-mt in 7z container with and without threads)} -body {
+	set ret {}
+	set p [file join $tmpdir test-mt-br.7z]
+	# test of brotli within 7z must be always mt-brotli (must succeed decompressing regardless thread count):
+	foreach opt {{} -mmt=off -mmt=on -mmt=1} {
+		7z a -t7z -m0=brotli {*}$opt -si $p << "This is a test string passed to stdin"
+		foreach dopt {{} -mmt=off -mmt=on -mmt=1} {
+			lappend ret [list "$opt --> $dopt" [catch {
+				7z e -t7z {*}$dopt -so $p
+			} res] [string trim $res]]
+		}
+		file delete $p
+	}
+	join $ret \n
+} -match glob -result [join [lrepeat 16 [list "* --> *" 0 "This is a test string passed to stdin"]] \n]
 
 test regression--list-tech-info {7z regression test for with previous versions compressed files, list with technical info} {
 	variable Z7_REGR_TEST_DIR
@@ -194,6 +246,26 @@ test regression--list-tech-info {7z regression test for with previous versions c
 	OK
 } \n]
 
+test regression--list-tech-info-no-ext {7z regression test for with previous versions compressed files, list with technical info (no extension)} {
+	variable Z7_REGR_TEST_DIR
+	set ret {}
+	foreach p {test.txt.7z test.txt.zstd} {
+		set p2 [file join $tmpdir [file root $p].bin]
+		set p [file join $Z7_REGR_TEST_DIR $p]
+		file copy $p $p2
+		lappend ret [file tail $p] [file tail $p2] [7z_get_info -- $p2]
+		file delete $p2
+	}
+	lappend ret OK
+	join $ret \n
+} [join {
+	test.txt.7z   test.txt.bin
+	  {Path test.txt.bin Type 7z Solid - Files {{Path test.txt Size 1000000 Modified 1743632719 CRC C601982A Method LZMA2:20}}}
+	test.txt.zstd test.txt.bin
+		{Path test.txt.bin Type zstd}
+	OK
+} \n]
+
 test regression--decompress {7z regression test for with previous versions compressed files, decompression} {
 	variable Z7_REGR_TEST_DIR
 	set ret {}
@@ -240,8 +312,24 @@ test regression--decompress {7z regression test for with previous versions compr
 	xenc-pwd-sol.zstd.7z 1
 }]
 
-set tmpdir [file join [temporaryDirectory] 7z-test-[format %x-%lx [pid] [clock microseconds]]]
-file mkdir $tmpdir
+test regression--decompress-no-ext {7z regression test for with previous versions compressed files, decompression (no extension)} {
+	variable Z7_REGR_TEST_DIR
+	set ret {}
+	set regr_arc_data(txt) "TEST\n[string repeat { } 999990]\nEND."
+	foreach p {test.txt.7z test.txt.zstd} {
+		set p2 [file join $tmpdir [file root $p].bin]
+		set p [file join $Z7_REGR_TEST_DIR $p]
+		file copy $p $p2
+		set res [7z e -so -- $p2]
+		file delete $p2
+		set v [string equal [string trimright $res] $regr_arc_data(txt)]
+		lappend ret [file tail $p] [file tail $p2] $v
+	}
+	set ret
+} [list {*}{
+	test.txt.7z   test.txt.bin 1
+	test.txt.zstd test.txt.bin 1
+}]
 
 test regression--compress-zstd-max-allowed {zstd compression for 64-bit only, fallback to highest level} -constraints {!64bit7z} -body {
 	variable Z7_REGR_TEST_DIR

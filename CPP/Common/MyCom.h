@@ -689,6 +689,6 @@ const HRESULT k_My_HRESULT_WritingDone = 0x20000011; /* partial extraction (leng
   Z7_IFACES_IMP_UNK_2(ISequentialInStream, IInStream) \
 
 
-#define k_My_HRESULT_WritingWasCut 0x20000010
+#define k_My_HRESULT_WritingWasCut ((HRESULT)0x20000010)
 
 #endif

@@ -69,7 +69,7 @@ static void PrintStringA(const char *name, LPCSTR ptr)
   m += name;
   m += ": ";
   char s[32];
-  sprintf(s, "%p", (const void *)ptr);
+  snprintf(s, sizeof(s), "%p", (const void *)ptr); // NOSONAR
   m += s;
   if (!MY_IS_INTRESOURCE(ptr))
   {
@@ -87,7 +87,7 @@ static void PrintStringW(const char *name, LPCWSTR ptr)
   m += name;
   m += ": ";
   char s[32];
-  sprintf(s, "%p", (const void *)ptr);
+  snprintf(s, sizeof(s), "%p", (const void *)ptr); // NOSONAR
   m += s;
   if (!MY_IS_INTRESOURCE(ptr))
   {
@@ -102,7 +102,7 @@ static void PrintStringW(const char *name, LPCWSTR ptr)
 static void Print_Ptr(const void *p, const char *s)
 {
   char temp[32];
-  sprintf(temp, "%p", (const void *)p);
+  snprintf(temp, sizeof(temp), "%p", (const void *)p); // NOSONAR
   AString m;
   m += temp;
   m.Add_Space();

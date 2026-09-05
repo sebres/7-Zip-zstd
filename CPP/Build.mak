@@ -64,28 +64,29 @@ COMPL_ASM = $(MY_ML) $** $O/$(*B).obj
 COMPL_ASM = $(MY_ML) -c -Fo$O/ $**
 !ENDIF
 
+CFLAGS_c_switch = -c -Fo$O/
+
 !IFDEF OLD_COMPILER
 CFLAGS_WARN_LEVEL = -W4
 !ELSE
+!IF "$(CC)" != "clang-cl"
+CFLAGS_WARN_LEVEL = -Wall -analyze
+!ELSE
+CFLAGS_WARN_LEVEL = -Wall --analyze -Xclang -analyzer-output=text
+# CFLAGS_c_switch =
+!ENDIF
 CFLAGS_WARN_LEVEL = -Wall
 !ENDIF
 
 # CFLAGS = $(CFLAGS) -nologo -c -Fo$O/ $(CFLAGS_WARN_LEVEL) -WX -EHsc -Gy -MT -MP -GR- -GL -Gw
-CFLAGS = $(CFLAGS) -nologo -c -Fo$O/ -W4 -WX -EHsc -Gy -MP -GR- -GL -Gw
+CFLAGS = $(CFLAGS) -nologo  $(CFLAGS_c_switch) -W4 -WX -EHsc -Gy -MP -GR- -GF -GL -Gw
 !IF "$(ZIP7_DARKMODE)" == "1"
 CFLAGS = $(CFLAGS) -DZIP7_DARKMODE=1 -std:c++20 -Zc:enumTypes
 RFLAGS = $(RFLAGS) -dZIP7_DARKMODE=1
 !ENDIF
 
 !IF "$(CC)" == "clang-cl"
-
-CFLAGS = $(CFLAGS) \
-  -Werror \
-  -Wall \
-  -Wextra \
-  -Weverything \
-  -Wfatal-errors \
-
+CFLAGS = $(CFLAGS) -Werror -Wall -Wextra -Weverything -Wfatal-errors
 !ENDIF
 
 # !IFDEF MY_DYNAMIC_LINK

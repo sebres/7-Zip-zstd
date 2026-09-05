@@ -92,13 +92,13 @@ LIZARDMT_DCtx *LIZARDMT_createDCtx(int threads, int inputsize)
 	LIZARDMT_DCtx *ctx;
 	int t;
 
+	/* check threads value */
+	if (threads < 1 || threads > LIZARDMT_THREAD_MAX)
+		return 0;
+
 	/* allocate ctx */
 	ctx = (LIZARDMT_DCtx *) malloc(sizeof(LIZARDMT_DCtx));
 	if (!ctx)
-		return 0;
-
-	/* check threads value */
-	if (threads < 1 || threads > LIZARDMT_THREAD_MAX)
 		return 0;
 
 	/* setup ctx */
@@ -305,7 +305,8 @@ static void *pt_decompress(void *arg)
 			    malloc(sizeof(struct writelist));
 			if (!wl) {
 				result = ERROR(memory_allocation);
-				goto error_unlock;
+				/* @wl was never acquired, nothing to give back */
+				goto error_unlock_nowl;
 			}
 			wl->out.buf = 0;
 			wl->out.size = 0;
@@ -385,6 +386,7 @@ static void *pt_decompress(void *arg)
 	pthread_mutex_lock(&ctx->write_mutex);
  error_unlock:
 	list_move(&wl->node, &ctx->writelist_free);
+ error_unlock_nowl:
 	pthread_mutex_unlock(&ctx->write_mutex);
 	if (in->allocated)
 		free(in->buf);
@@ -480,6 +482,13 @@ static size_t st_decompress(void *arg)
 		}
 	}
 
+	/* input ended, but current frame is not fully decoded yet */
+	if (nextToLoad != 0) {
+		free(out->buf);
+		free(in->buf);
+		return ERROR(frame_decompress);
+	}
+
 	/* no error */
 	free(out->buf);
 	free(in->buf);
@@ -533,7 +542,7 @@ size_t LIZARDMT_decompressDCtx(LIZARDMT_DCtx * ctx, LIZARDMT_RdWr_t * rdwr)
 		/* no pthread_create() needed! */
 		void *p = pt_decompress(w);
 		if (p)
-			return (size_t) p;
+			retval_of_thread = p;
 		goto okay;
 	}
 
@@ -556,6 +565,15 @@ size_t LIZARDMT_decompressDCtx(LIZARDMT_DCtx * ctx, LIZARDMT_RdWr_t * rdwr)
 	}
 
  okay:
+	/* move remaining done/busy entries to free list */
+	while (!list_empty(&ctx->writelist_done)) {
+		struct list_head *entry = list_first(&ctx->writelist_done);
+		list_move(entry, &ctx->writelist_free);
+	}
+	while (!list_empty(&ctx->writelist_busy)) {
+		struct list_head* entry = list_first(&ctx->writelist_busy);
+		list_move(entry, &ctx->writelist_free);
+	}
 	/* clean up the buffers */
 	while (!list_empty(&ctx->writelist_free)) {
 		struct writelist *wl;

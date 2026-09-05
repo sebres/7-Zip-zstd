@@ -15,6 +15,11 @@ CEncoder::CEncoder():
   _numThreads(NWindows::NSystem::GetNumberOfProcessors()),
   _ctx(NULL)
 {
+  // GetNumberOfProcessors() is uncapped and sums all processor groups, while
+  // LZ5MT_createCCtx() only accepts up to LZ5MT_THREAD_MAX. Lz5Handler never
+  // calls SetNumberOfThreads(), so clamp here too.
+  if (_numThreads > (UInt32)LZ5MT_THREAD_MAX)
+    _numThreads = (UInt32)LZ5MT_THREAD_MAX;
   _props.clear();
 }
 
@@ -40,10 +45,13 @@ Z7_COM7F_IMF(CEncoder::SetCoderProperties(const PROPID * propIDs, const PROPVARI
         if (prop.vt != VT_UI4)
           return E_INVALIDARG;
 
-        _props._level = static_cast < Byte > (prop.ulVal);
-        Byte mylevel = static_cast < Byte > (LZ5MT_LEVEL_MAX);
-        if (_props._level > mylevel)
-          _props._level = mylevel;
+        // clamp in UInt32: narrowing first would wrap, e.g. -mx256 -> 0
+        UInt32 level = prop.ulVal;
+        if (level > (UInt32)LZ5MT_LEVEL_MAX)
+          level = LZ5MT_LEVEL_MAX;
+        if (level < (UInt32)LZ5MT_LEVEL_MIN)
+          level = LZ5MT_LEVEL_MIN;
+        _props._level = static_cast < Byte > (level);
 
         break;
       }

@@ -76,6 +76,11 @@ CDecoder::CDecoder():
   _inputSize(0),
   _numThreads(NWindows::NSystem::GetNumberOfProcessors())
 {
+  // GetNumberOfProcessors() is uncapped and sums all processor groups, while
+  // LZ5MT_createDCtx() only accepts up to LZ5MT_THREAD_MAX. Lz5Handler never
+  // calls SetNumberOfThreads(), so clamp here too.
+  if (_numThreads > (UInt32)LZ5MT_THREAD_MAX)
+    _numThreads = (UInt32)LZ5MT_THREAD_MAX;
   _props.clear();
 }
 
@@ -146,14 +151,16 @@ HRESULT CDecoder::CodeSpec(ISequentialInStream * inStream,
 
   /* 3) decompress */
   result = LZ5MT_decompressDCtx(ctx, &rdwr);
+
+  /* 4) free resources */
+  LZ5MT_freeDCtx(ctx);
+
   if (LZ5MT_isError(result)) {
     if (result == (size_t)-LZ5MT_error_canceled)
       return E_ABORT;
     return E_FAIL;
   }
 
-  /* 4) free resources */
-  LZ5MT_freeDCtx(ctx);
   return res;
 }
 
