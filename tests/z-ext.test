@@ -28,7 +28,7 @@ test z-ext--direct-encryption {7z direct encryption, decription with openssl} -c
 					$Z7_PATH e -t$t -si -so
 				]
 				if {$v2 ne $v} {
-					error "retrieved $v2 instead of original"
+					error "retrieved \"$v2\" instead of original"
 				}
 			} res]} {
 				error "Test of -t$t on \"$v\" failed: $res"
@@ -47,7 +47,7 @@ test z-ext--direct-encrypt-decrypt {7z direct encryption, decription} {
 		# to test PKCS#7 padding is correct, we will use different length...
 		set v "test zstd & brotli 0123456789-ABCEFGHIJKLMNOPQRSTUVWXYZ?_*."
 		while {$v ne ""} {
-			# compress with encryption, decompress with encryption:
+			# compress with encryption, decompress with decryption:
 			if {[catch {
 				#puts $t\tTL:[string length $v]\tC:[string length [7z_2_bin a -t$t -mx$l -si -so . << "$v"]]\tP:[string length [7z_2_bin a -t$t -mx$l -si -so -ekey$Z7_EKEY$Z7_EKIV . << "$v"]]
 				set v2 [
@@ -56,7 +56,7 @@ test z-ext--direct-encrypt-decrypt {7z direct encryption, decription} {
 				]
 				#puts $v2
 				if {$v2 ne $v} {
-					error "retrieved $v2 instead of original"
+					error "retrieved \"$v2\" instead of original"
 				}
 			} res]} {
 				error "Test of -t$t on \"$v\" failed: $res"
