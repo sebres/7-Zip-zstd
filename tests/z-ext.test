@@ -90,4 +90,46 @@ test z-ext--decompress-w-offs-length {7z fast decompression of chunk by offset/l
 	test.txt.zstd.7z TEST END. "ST\n     " "     \nEN"
 }]
 
+test z-ext--decompress-encr-file-w-offs-length {7z fast decompression of encrypted chunk from file by offset/length} {
+	variable Z7_REGR_TEST_DIR
+	variable Z7_EKEY
+	variable Z7_EKIV
+	set ret {}
+	foreach {p} [lsort -dictionary [glob -directory $Z7_REGR_TEST_DIR xenc-ekey.*]] {
+		# decompress part of file by offset:length with decryption:
+		lappend ret [file tail $p]
+		lappend ret [7z e -ekey$Z7_EKEY$Z7_EKIV -eoffs=0:4 -so -- $p] [7z e -ekey$Z7_EKEY$Z7_EKIV -eoffs=999996:4 -so -- $p]
+		lappend ret [7z e -ekey$Z7_EKEY$Z7_EKIV -eoffs=2:8 -so -- $p] [7z e -ekey$Z7_EKEY$Z7_EKIV -eoffs=999990:8 -so -- $p]
+	}
+	set ret
+} [list {*}{
+	xenc-ekey.br      TEST END. "ST\n     " "     \nEN"
+	xenc-ekey.zstd    TEST END. "ST\n     " "     \nEN"
+}]
+
+test z-ext--decompress-encr-pipe-w-offs-length {7z fast decompression of encrypted chunk from pipe by offset/length} {
+	variable Z7_PATH
+	variable Z7_EKEY
+	variable Z7_EKIV
+	set v "test zstd & brotli 0123456789-ABCEFGHIJKLMNOPQRSTUVWXYZ?_*."
+	set v "1. $v; 2. $v; 3. $v;"
+	set o [expr {[string length $v] / 3 + 1}]; set l [expr {$o-2}]; # offset:length for interim part from 2. to semicolon
+	foreach {t l} {zstd 9 brotli 5} {
+		# compress with encryption, decompress part of pipe stream by offset:length with decryption:
+		if {[catch {
+			set v2 [
+				7z a -t$t -mx$l -si -so -ekey$Z7_EKEY$Z7_EKIV . << "$v" | \
+				$Z7_PATH e -t$t -si -so -ekey$Z7_EKEY$Z7_EKIV -eoffs=$o:$l
+			]
+			#puts $v2
+			if {$v2 ne [set v3 [string range $v $o [expr {$o+$l-1}]]]} {
+				error "retrieved \"$v2\" instead of original part \"$v3\""
+			}
+		} res]} {
+			error "Test of -t$t on \"$v\" failed:\n$res"
+		}
+	}
+	set _ OK
+} OK
+
 ::tcltest::cleanupTests
