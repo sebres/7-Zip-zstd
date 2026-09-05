@@ -76,7 +76,7 @@ struct BROTLIMT_DCtx_s {
 	 * hold frame skippable header, frame 0 read by BROTLIMT_decompressDCtx() before
 	 * the container path was taken, so pt_read() does not read those bytes
 	 * a second time. Also used in pt_read() to read header of next frames. */
-	unsigned char prebuf[256+16];
+	unsigned char prebuf[256+16+16];
 	unsigned char *prepos;
 	size_t presize;
 
@@ -428,29 +428,6 @@ static void *pt_decompress(void *arg)
 }
 
 /*
- * st_finish_decompress - after st_decompress()'s main loop exits, check
- * the stream finished cleanly and flush whatever output is still sitting
- * in the output buffer. Split out (pre-existing logic, not new in this
- * change) so it doesn't add to the main loop function's complexity either.
- */
-static size_t st_finish_decompress(BROTLIMT_DCtx *ctx, BROTLIMT_Buffer *out, uint8_t *next_out, BrotliDecoderResult bres)
-{
-	int rv;
-
-	if (bres != BROTLI_DECODER_RESULT_SUCCESS)
-		return MT_ERROR(data_error); // corrupt input
-
-	out->size = next_out - (uint8_t *)out->buf;
-	if (out->size != 0) {
-		rv = ctx->fn_write(ctx->arg_write, out);
-		if (rv != 0)
-			return mt_error(rv);
-	}
-
-	return 0;
-}
-
-/*
  * single threaded (standard brotli stream, without header/mt-frames)
  *
  * @prefix/@prefixSize: bytes already consumed from the stream (by
@@ -459,7 +436,7 @@ static size_t st_finish_decompress(BROTLIMT_DCtx *ctx, BROTLIMT_Buffer *out, uin
  */
 static size_t st_decompress(BROTLIMT_DCtx *ctx, const unsigned char *prefix, size_t prefixSize)
 {
-	BrotliDecoderResult bres;
+	BrotliDecoderResult bres = BROTLI_DECODER_RESULT_NEEDS_MORE_INPUT;
 	cwork_t *w = &ctx->cwork[0];
 	BROTLIMT_Buffer Out;
 	BROTLIMT_Buffer *out = &Out;
@@ -470,11 +447,9 @@ static size_t st_decompress(BROTLIMT_DCtx *ctx, const unsigned char *prefix, siz
 	uint8_t* next_out;
 	int rv;
 	size_t retval = 0;
-	size_t allocSize = ctx->inputsize;
 
 	/* allocate space for input buffer */
-	in->allocated = allocSize;
-	in->size = allocSize;
+	in->allocated = in->size = ctx->inputsize;
 	org_inbuf = malloc(in->size + 16); // need to be aligned because of possible HW AES encryption
 	if (!org_inbuf)
 		return MT_ERROR(memory_allocation);
@@ -511,12 +486,9 @@ static size_t st_decompress(BROTLIMT_DCtx *ctx, const unsigned char *prefix, siz
 			retval = MT_ERROR(data_error);
 			goto done;
 		}
-	} else {
-		bres = BROTLI_DECODER_RESULT_NEEDS_MORE_INPUT; // read buffer
 	}
 
 	while (1) {
-
 		if (bres == BROTLI_DECODER_RESULT_NEEDS_MORE_INPUT) {
 			ctx->frames++; // signal for mt-brotli content-based detection, it passed 1st block
 			in->size = in->allocated;
@@ -542,7 +514,18 @@ static size_t st_decompress(BROTLIMT_DCtx *ctx, const unsigned char *prefix, siz
 		bres = BrotliDecoderDecompressStream(state, &in->size, &next_in, &out->size, &next_out, 0);
 	}
 
-	retval = st_finish_decompress(ctx, out, next_out, bres);
+	if (bres != BROTLI_DECODER_RESULT_SUCCESS) {
+		retval = MT_ERROR(data_error); // corrupt input
+		goto done;
+	}
+	out->size = next_out - (uint8_t*)out->buf;
+	if (out->size != 0) {
+		rv = ctx->fn_write(ctx->arg_write, out);
+		if (rv != 0) {
+			retval = mt_error(rv);
+			goto done;
+		}
+	}
 
  done:
 		free(org_inbuf);
@@ -572,12 +555,20 @@ size_t BROTLIMT_decompressDCtx(BROTLIMT_DCtx * ctx, BROTLIMT_RdWr_t * rdwr)
 	 * container detection), and if it would fail by this first buffer without
 	 * further reads, we'd try with mt-brotli decompression. */
 
+	ctx->prepos = ctx->prebuf;
 	ctx->presize = 0;
 	if (!ctx->threadsset || !ctx->threads) {
 
 		in->buf = ctx->prebuf;
-		in->size = sizeof(ctx->prebuf) - 16; /* reserve up to 16 bytes to be able
-																					* read parts of next header later. */
+		in->size = sizeof(ctx->prebuf) - 16 - 16; /* reserve up to 16 bytes to be able
+																							 * read parts of next header later
+																							 * and 16 bytes for alignment. */
+		// align buffer:
+		if ((uintptr_t)in->buf % 16) {
+			in->buf = (void*)((uintptr_t)in->buf + 16 - ((uintptr_t)in->buf % 16));
+			ctx->prepos = in->buf;
+		}
+
 		rv = ctx->fn_read(ctx->arg_read, in);
 		if (rv != 0)
 			return mt_error(rv);
@@ -587,6 +578,7 @@ size_t BROTLIMT_decompressDCtx(BROTLIMT_DCtx * ctx, BROTLIMT_RdWr_t * rdwr)
 
 		if (
 			ret == 0 ||													/* no error */
+			ret == 0x20000011 ||								/* k_My_HRESULT_WritingDone */
 			ctx->frames ||											/* read more data (passed 1st block) */
 			(ctx->threadsset > 0 && !ctx->threads)	/* forced single-threaded (in .br) */
 		) {
@@ -594,7 +586,6 @@ size_t BROTLIMT_decompressDCtx(BROTLIMT_DCtx * ctx, BROTLIMT_RdWr_t * rdwr)
 		}
 	}
 
-	ctx->prepos = ctx->prebuf;
 	ret = 0;
 
 	/*
