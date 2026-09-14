@@ -326,12 +326,6 @@ Z7_COM7F_IMF(CHandler::Extract(const UInt32 *indices, UInt32 numItems,
     }
   }
 
-#ifndef _NO_CRYPTO
-  _aesStream = NULL; // gets released below
-#endif
-  decoderSpec->ReleaseInStream();
-  outStream.Release();
-
   if (!_isArc)
     opRes = NExtract::NOperationResult::kIsNotArc;
   else if (_needMoreInput)
@@ -345,7 +339,13 @@ Z7_COM7F_IMF(CHandler::Extract(const UInt32 *indices, UInt32 numItems,
     _unpackSize_Defined = true;
     opRes = NExtract::NOperationResult::kOK;
   } else
-    return result;
+    opRes = result;
+
+#ifndef _NO_CRYPTO
+  _aesStream = NULL; // gets released below
+#endif
+  decoderSpec->ReleaseInStream();
+  outStream.Release();
 
   }
 
