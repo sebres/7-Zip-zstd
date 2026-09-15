@@ -148,7 +148,6 @@ HRESULT CDecoder::CodeSpec(ISequentialInStream * inStream,
 {
   BROTLIMT_RdWr_t rdwr;
   size_t result;
-  HRESULT res = S_OK;
 
   struct BrotliStream Rd;
   Rd.inStream = inStream;
@@ -178,14 +177,21 @@ HRESULT CDecoder::CodeSpec(ISequentialInStream * inStream,
   BROTLIMT_freeDCtx(ctx);
 
   if (result == k_My_HRESULT_WritingDone)
-      res = (HRESULT)result;
+      return (HRESULT)result;
   else if (BROTLIMT_isError(result)) {
-    res = E_FAIL;
-    if (result == (size_t)-BROTLIMT_error_canceled)
-      res = E_ABORT;
+    switch (result) {
+      case MT_ERROR(canceled):
+        return E_ABORT;
+      case MT_ERROR(end_of_data):
+        return ERROR_HANDLE_EOF;
+      case MT_ERROR(data_error):
+        return ERROR_INVALID_DATA;
+      default:
+        return E_FAIL;
+    }
   }
 
-  return res;
+  return S_OK;
 }
 
 Z7_COM7F_IMF(CDecoder::Code(ISequentialInStream * inStream, ISequentialOutStream * outStream,
