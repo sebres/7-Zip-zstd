@@ -17,7 +17,7 @@ public:
   CBoolPair ListPathSeparatorSlash;
   int CodePage;
 
-  CStdOutStream(FILE *stream = NULL):
+  CStdOutStream(FILE *stream Z7_lifetimebound = NULL):
       _stream(stream),
       // _streamIsOpen(false),
       IsTerminalMode(false),
@@ -43,18 +43,18 @@ public:
   */
   bool Flush() throw();
   
-  CStdOutStream & operator<<(CStdOutStream& (*func)(CStdOutStream&));
-  CStdOutStream & operator<<(const char* s) throw();
-  CStdOutStream & operator<<(char c) throw();
+  CStdOutStream & operator<<(CStdOutStream& (*func)(CStdOutStream&)) Z7_lifetimebound;
+  CStdOutStream & operator<<(const char* s) throw() Z7_lifetimebound;
+  CStdOutStream & operator<<(char c) throw() Z7_lifetimebound;
 
-  CStdOutStream & operator<<(Int32 number) throw();
-  CStdOutStream & operator<<(Int64 number) throw();
-  CStdOutStream & operator<<(UInt32 number) throw();
-  CStdOutStream & operator<<(UInt64 number) throw();
+  CStdOutStream & operator<<(Int32 number) throw() Z7_lifetimebound;
+  CStdOutStream & operator<<(Int64 number) throw() Z7_lifetimebound;
+  CStdOutStream & operator<<(UInt32 number) throw() Z7_lifetimebound;
+  CStdOutStream & operator<<(UInt64 number) throw() Z7_lifetimebound;
 
   int SetCodePage(int codePage);
 
-  CStdOutStream & operator<<(const wchar_t *s);
+  CStdOutStream & operator<<(const wchar_t *s) Z7_lifetimebound;
   void PrintUString(const UString &s, AString &temp);
   void Convert_UString_to_AString(const UString &src, AString &dest);
 
@@ -67,7 +67,7 @@ public:
   void NormalizePrint_wstr_Path(const wchar_t *s);
 };
 
-CStdOutStream & endl(CStdOutStream & outStream) throw();
+CStdOutStream & endl(CStdOutStream & outStream Z7_lifetimebound) throw();
 
 extern CStdOutStream g_StdOut;
 extern CStdOutStream g_StdErr;
