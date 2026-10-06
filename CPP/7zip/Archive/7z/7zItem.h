@@ -83,7 +83,12 @@ public:
   bool IsEncrypted() const
   {
     FOR_VECTOR(i, Coders)
-      if (Coders[i].MethodID == k_AES)
+      if (Coders[i].MethodID == k_AES
+          || Coders[i].MethodID == k_XCHACHA20
+          || Coders[i].MethodID == k_XCHACHA20_POLY1305
+          || Coders[i].MethodID == k_AES_XCHACHA20_POLY1305
+          || Coders[i].MethodID == k_AES_XCHACHA20_ASCON
+          || Coders[i].MethodID == k_XCHACHA20_AES_AEGIS256)
         return true;
     return false;
   }
