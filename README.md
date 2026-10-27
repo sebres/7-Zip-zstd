@@ -16,7 +16,7 @@ You can install it in two ways:
 1. [Zstandard] v1.5.7 is a real-time compression algorithm, providing high compression ratios. It offers a very wide range of compression / speed trade-off, while being backed by a very fast decoder.
    - Levels: 1..22
 
-2. [Brotli] v.1.2.0 is a generic-purpose lossless compression algorithm that compresses data using a combination of a modern variant of the LZ77 algorithm, Huffman coding and 2nd order context modeling, with a compression ratio comparable to the best currently available general-purpose compression methods. It is similar in speed with deflate but offers more dense compression.
+2. [Brotli] v.1.2.1 is a generic-purpose lossless compression algorithm that compresses data using a combination of a modern variant of the LZ77 algorithm, Huffman coding and 2nd order context modeling, with a compression ratio comparable to the best currently available general-purpose compression methods. It is similar in speed with deflate but offers more dense compression.
    - Levels: 0..11
 
 3. [LZ4] v1.10.0 is lossless compression algorithm, providing compression speed at 400 MB/s per core (0.16 Bytes/cycle). It features an extremely fast decoder, with speed in multiple GB/s per core (0.71 Bytes/cycle). A high compression derivative, called LZ4_HC, is available, trading customizable CPU time for compression ratio.
@@ -80,7 +80,7 @@ differently (plugin-capable vs. standalone), which can affect available formats/
 
 The output should look like this:
 ```
-7-Zip 26.04 ZS v1.5.7 R1 : Copyright (c) 1999- Igor Pavlov, 2016- Tino Reichardt, 2022- Sergey G. Brester : 2026-10-06
+7-Zip 26.05 ZS v1.5.7 R1 : Copyright (c) 1999- Igor Pavlov, 2016- Tino Reichardt, 2022- Sergey G. Brester : 2026-10-06
 
 Libs:
  0  c:\Program Files\7-Zip-Zstandard\7z.dll
@@ -387,8 +387,8 @@ You find this project useful, maybe you consider a donation ;-)
 
 ## Version Information
 
-- 7-Zip ZS Version 26.04 - Release 1
-  - [Brotli] Version 1.2.0
+- 7-Zip ZS Version 26.05 - Release 1
+  - [Brotli] Version 1.2.1
   - [Fast LZMA2] Version 1.0.1
   - [Lizard] Version 2.1
   - [LZ4] Version 1.10.0
@@ -399,7 +399,7 @@ You find this project useful, maybe you consider a donation ;-)
   - [AES+XChaCha20+Ascon] (AXA) cascade cipher, Version 1.0.0, Ascon Version 1.3
   - [XChaCha20+AES+AEGIS] (XAA) cascade cipher, Version 1.0.0
 
-/TR 2026-10-06
+/TR 2026-10-27
 
 ## Notes
 
